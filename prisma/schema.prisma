@@ -13,16 +13,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Producto {
-  id          String   @id @default(cuid())
+model Categoria {
+  id          String     @id @default(cuid())
   nombre      String
-  descripcion String
-  precio      Float
-  imagenes    String[]
-  categoria   String
-  existencias Int
-  creadoEl    DateTime @default(now())
-  actualizadoEl DateTime @updatedAt
+  descripcion String?
+  productos   Producto[]
+  creadoEl    DateTime   @default(now())
+}
+
+model Producto {
+  id            String    @id @default(cuid())
+  nombre        String
+  descripcion   String
+  precio        Float
+  imagenes      String[]
+  existencias   Int
+  enOferta      Boolean   @default(false)
+  precioOferta  Float?
+  categoria     Categoria @relation(fields: [categoriaId], references: [id])
+  categoriaId   String
+  creadoEl      DateTime  @default(now())
+  actualizadoEl DateTime  @updatedAt
 }
 
 model Pedido {
@@ -42,10 +53,10 @@ enum Role {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  role          Role      @default(USER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

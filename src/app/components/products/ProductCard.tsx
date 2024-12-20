@@ -1,5 +1,7 @@
+'use client'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useCart } from '@/app/context/CartContext'
 
 type ProductCardProps = {
   product: {
@@ -12,6 +14,18 @@ type ProductCardProps = {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const { addItem } = useCart()
+
+  const handleAddToCart = () => {
+    addItem({
+      id: product.id,
+      nombre: product.nombre,
+      precio: product.precio,
+      cantidad: 1,
+      imagen: product.imagenes[0]
+    })
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
       <div className="relative h-64">
@@ -30,10 +44,16 @@ export default function ProductCard({ product }: ProductCardProps) {
         <div className="mt-4 flex gap-2">
           <Link
             href={`/products/${product.id}`}
-            className="flex-1 text-center bg-pink-600 text-white px-4 py-2 rounded-md hover:bg-pink-700"
+            className="flex-1 text-center btn-secondary"
           >
             Ver detalles
           </Link>
+          <button
+            onClick={handleAddToCart}
+            className="flex-1 btn-primary"
+          >
+            Agregar al carrito
+          </button>
         </div>
       </div>
     </div>
