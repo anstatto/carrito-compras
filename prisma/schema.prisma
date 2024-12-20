@@ -1,0 +1,51 @@
+// Este es tu archivo de esquema Prisma,
+// aprende más sobre él en la documentación: https://pris.ly/d/prisma-schema
+
+// ¿Buscas formas de acelerar tus consultas o escalar fácilmente con tus funciones serverless o edge?
+// Prueba Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Producto {
+  id          String   @id @default(cuid())
+  nombre      String
+  descripcion String
+  precio      Float
+  imagenes    String[]
+  categoria   String
+  existencias Int
+  creadoEl    DateTime @default(now())
+  actualizadoEl DateTime @updatedAt
+}
+
+model Pedido {
+  id              String   @id @default(cuid())
+  nombreCliente   String
+  emailCliente    String
+  telefonoCliente String
+  productos       Json[]   // Arreglo de productos comprados
+  total           Float
+  estado          String   // pendiente, completado, cancelado
+  creadoEl        DateTime @default(now())
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
