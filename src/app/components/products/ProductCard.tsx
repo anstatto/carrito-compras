@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '@/app/context/CartContext'
+import { FaCartPlus } from 'react-icons/fa'
 
 type ProductCardProps = {
   product: {
@@ -27,16 +28,18 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden p-4 max-w-sm">
       <div className="relative h-64">
         <Image
           src={product.imagenes[0]}
           alt={product.nombre}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+          priority={true}
           className="object-cover"
         />
       </div>
-      <div className="p-4">
+      <div className="mt-4">
         <h3 className="text-lg font-semibold text-gray-900">{product.nombre}</h3>
         <p className="text-pink-600 font-medium mt-1">
           ${product.precio.toFixed(2)}
@@ -52,7 +55,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             onClick={handleAddToCart}
             className="flex-1 btn-primary"
           >
-            Agregar al carrito
+            <FaCartPlus className="mr-2" />Agregar al carrito
           </button>
         </div>
       </div>
