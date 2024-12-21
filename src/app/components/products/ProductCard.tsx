@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '@/app/context/CartContext'
 import { FaCartPlus } from 'react-icons/fa'
+import AddToCartButton from '../cart/AddToCartButton'
 
 type ProductCardProps = {
   product: {
@@ -51,12 +52,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           >
             Ver detalles
           </Link>
-          <button
-            onClick={handleAddToCart}
-            className="flex-1 btn-primary"
-          >
-            <FaCartPlus className="mr-2" />Agregar al carrito
-          </button>
+          <AddToCartButton product={{...product, imagen: product.imagenes[0]}} />
         </div>
       </div>
     </div>

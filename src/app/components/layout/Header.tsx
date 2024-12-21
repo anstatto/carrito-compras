@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import CartButton from '../cart/CartButton'
 import { FaSearch, FaUser, FaHeart } from 'react-icons/fa'
+import CartDropdown from '../cart/CartDropdown'
+import ThemeToggle from '../ui/ThemeToggle'
 
 export default function Header() {
   return (
@@ -9,7 +10,6 @@ export default function Header() {
 
 
       <div className="container mx-auto px-4">
-        {/* Navegación Principal */}
         <nav className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link href="/" className="flex-shrink-0">
@@ -72,9 +72,8 @@ export default function Header() {
             >
               <FaUser className="w-5 h-5" />
             </Link>
-
-            {/* Carrito */}
-            <CartButton />
+            <ThemeToggle />
+            <CartDropdown />
           </div>
         </nav>
       </div>

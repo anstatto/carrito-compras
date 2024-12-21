@@ -2,26 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --primary-pink: #FF69B4;
-  --secondary-pink: #FFC0CB;
-  --accent-pink: #FFB6C1;
-  --background-pink: #FFF0F5;
-  --text-dark: #333333;
-  --white: #FFFFFF;
-} 
+@layer base {
+  :root {
+    --primary-main: #FF69B4;
+    --primary-light: #FFC0CB;
+    --primary-dark: #FF1493;
+    --secondary-main: #FFB6C1;
+    --secondary-light: #FFF0F5;
+    --secondary-dark: #FF82AB;
+  }
 
-body {
-  @apply bg-gray-50;
+  .dark {
+    --primary-main: #FF82AB;
+    --primary-light: #FF69B4;
+    --primary-dark: #FF1493;
+    --secondary-main: #FFB6C1;
+    --secondary-light: #FF82AB;
+    --secondary-dark: #FF69B4;
+  }
+
+  body {
+    @apply bg-background-default text-text-primary transition-colors duration-200;
+  }
+
+  .dark body {
+    @apply bg-dark text-dark transition-colors duration-200;
+  }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-pink-600 text-white px-4 py-2 rounded-md hover:bg-pink-700 transition-colors;
+    @apply bg-primary-main text-white 
+           hover:bg-primary-dark 
+           transition-colors duration-200
+           disabled:bg-primary-light disabled:cursor-not-allowed;
   }
-  
+
   .btn-secondary {
-    @apply bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors;
+    @apply bg-secondary-main text-secondary-contrastText 
+           hover:bg-secondary-dark 
+           transition-colors duration-200
+           disabled:bg-secondary-light disabled:cursor-not-allowed;
+  }
+
+  .card {
+    @apply bg-background-paper dark:bg-dark-paper 
+           rounded-lg shadow-sm
+           transition-colors duration-200;
+  }
+
+  .input {
+    @apply border border-gray-200 dark:border-gray-700 
+           rounded-lg px-4 py-2 
+           focus:ring-2 focus:ring-primary-main focus:border-transparent 
+           outline-none
+           transition-colors duration-200;
   }
 }
 
