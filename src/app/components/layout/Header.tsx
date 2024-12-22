@@ -4,9 +4,10 @@ import { FaSearch, FaUser, FaHeart } from 'react-icons/fa'
 import CartDropdown from '../cart/CartDropdown'
 import ThemeToggle from '../ui/ThemeToggle'
 
+
 export default function Header() {
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm">
+    <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm">
 
 
       <div className="container mx-auto px-4">
@@ -24,27 +25,27 @@ export default function Header() {
 
           {/* Navegación Central */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link 
+            <Link
               href="/catalogo"
-              className="text-gray-700 hover:text-pink-500 transition-colors"
+              className="text-gray-700 dark:text-gray-200 hover:text-pink-500 dark:hover:text-pink-400 transition-colors"
             >
               Catálogo
             </Link>
-            <Link 
+            <Link
               href="/categorias"
-              className="text-gray-700 hover:text-pink-500 transition-colors"
+              className="text-gray-700 dark:text-gray-200 hover:text-pink-500 dark:hover:text-pink-400 transition-colors"
             >
               Categorías
             </Link>
-            <Link 
+            <Link
               href="/ofertas"
-              className="text-gray-700 hover:text-pink-500 transition-colors"
+              className="text-gray-700 dark:text-gray-200 hover:text-pink-500 dark:hover:text-pink-400 transition-colors"
             >
               Ofertas
             </Link>
-            <Link 
+            <Link
               href="/nosotros"
-              className="text-gray-700 hover:text-pink-500 transition-colors"
+              className="text-gray-700 dark:text-gray-200 hover:text-pink-500 dark:hover:text-pink-400 transition-colors"
             >
               Nosotros
             </Link>
@@ -53,27 +54,28 @@ export default function Header() {
           {/* Iconos de Acción */}
           <div className="flex items-center space-x-4">
             {/* Búsqueda */}
-            <button className="p-2 hover:text-pink-500 transition-colors">
+            <button className="p-2 hover:text-pink-500 dark:text-gray-200 transition-colors">
               <FaSearch className="w-5 h-5" />
             </button>
 
             {/* Favoritos */}
-            <Link 
+            <Link
               href="/favoritos"
-              className="p-2 hover:text-pink-500 transition-colors"
+              className="p-2 hover:text-pink-500 dark:text-gray-200 transition-colors"
             >
               <FaHeart className="w-5 h-5" />
             </Link>
 
             {/* Usuario */}
-            <Link 
+            <Link
               href="/cuenta"
-              className="p-2 hover:text-pink-500 transition-colors"
+              className="p-2 hover:text-pink-500 dark:text-gray-200 transition-colors"
             >
               <FaUser className="w-5 h-5" />
             </Link>
             <ThemeToggle />
             <CartDropdown />
+
           </div>
         </nav>
       </div>

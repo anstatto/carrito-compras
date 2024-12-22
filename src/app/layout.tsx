@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { CartProvider } from './context/CartContext'
 import { Providers } from './providers'
 import { Playfair_Display } from 'next/font/google'
-import Header from '@/app/components/layout/Header'
-import Footer from '@/app/components/layout/Footer'
 
 const inter = Inter({ subsets: ["latin"] });
 const playfair = Playfair_Display({ subsets: ['latin'] })
@@ -22,11 +19,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors`}>
         <Providers>
-          <CartProvider>
-            {children}
-          </CartProvider>
+          {children}
         </Providers>
       </body>
     </html>

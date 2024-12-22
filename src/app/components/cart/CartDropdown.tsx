@@ -3,7 +3,7 @@
 import { useCart } from '@/app/context/CartContext'
 import Image from 'next/image'
 import Link from 'next/link'
-import { FaTrash, FaTimes, FaShoppingBag } from 'react-icons/fa'
+import { FaTrash, FaTimes, FaShoppingCart } from 'react-icons/fa'
 import { useState, useRef, useEffect } from 'react'
 
 export default function CartDropdown() {
@@ -11,7 +11,6 @@ export default function CartDropdown() {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Cerrar al hacer clic fuera
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -25,12 +24,11 @@ export default function CartDropdown() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Botón del carrito */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 hover:text-pink-500 transition-colors"
+        className="relative p-2 hover:text-pink-500 dark:text-gray-200 transition-colors"
       >
-        <FaShoppingBag className="w-6 h-6" />
+        <FaShoppingCart className="w-6 h-6" />
         {items.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
             {items.length}
@@ -38,15 +36,14 @@ export default function CartDropdown() {
         )}
       </button>
 
-      {/* Dropdown del carrito */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl z-50">
-          <div className="p-4 border-b">
+        <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl z-50">
+          <div className="p-4 border-b dark:border-gray-700">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Carrito de Compras</h3>
+              <h3 className="text-lg font-semibold dark:text-white">Carrito de Compras</h3>
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <FaTimes />
               </button>
@@ -56,7 +53,7 @@ export default function CartDropdown() {
           <div className="max-h-96 overflow-y-auto">
             {items.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
-                <FaShoppingBag className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <FaShoppingCart className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p>Tu carrito está vacío</p>
               </div>
             ) : (

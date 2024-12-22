@@ -11,64 +11,83 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Colores primarios
+        // Modo claro
         primary: {
           main: theme.light.primary.main,
           light: theme.light.primary.light,
           dark: theme.light.primary.dark,
           contrastText: theme.light.primary.contrastText,
         },
-        // Colores secundarios
         secondary: {
           main: theme.light.secondary.main,
           light: theme.light.secondary.light,
           dark: theme.light.secondary.dark,
           contrastText: theme.light.secondary.contrastText,
         },
-        // Fondos
-        background: {
-          default: theme.light.background.default,
-          paper: theme.light.background.paper,
-          pink: theme.light.background.pink,
+        // Colores específicos para modo oscuro
+        'dark-primary': {
+          main: theme.dark.primary.main,
+          light: theme.dark.primary.light,
+          dark: theme.dark.primary.dark,
+          contrastText: theme.dark.primary.contrastText,
         },
-        // Textos
+        'dark-secondary': {
+          main: theme.dark.secondary.main,
+          light: theme.dark.secondary.light,
+          dark: theme.dark.secondary.dark,
+          contrastText: theme.dark.secondary.contrastText,
+        },
+        // Fondos y textos
+        background: {
+          light: theme.light.background.default,
+          dark: theme.dark.background.default,
+          paper: {
+            light: theme.light.background.paper,
+            dark: theme.dark.background.paper,
+          },
+          pink: {
+            light: theme.light.background.pink,
+            dark: theme.dark.background.pink,
+          },
+        },
         text: {
-          primary: theme.light.text.primary,
-          secondary: theme.light.text.secondary,
-          disabled: theme.light.text.disabled,
+          light: {
+            primary: theme.light.text.primary,
+            secondary: theme.light.text.secondary,
+            disabled: theme.light.text.disabled,
+          },
+          dark: {
+            primary: theme.dark.text.primary,
+            secondary: theme.dark.text.secondary,
+            disabled: theme.dark.text.disabled,
+          },
         },
         // Estados
-        error: {
-          main: theme.light.error.main,
-          light: theme.light.error.light,
-          dark: theme.light.error.dark,
-        },
-        success: {
-          main: theme.light.success.main,
-          light: theme.light.success.light,
-          dark: theme.light.success.dark,
-        },
-        warning: {
-          main: theme.light.warning.main,
-          light: theme.light.warning.light,
-          dark: theme.light.warning.dark,
-        },
-        info: {
-          main: theme.light.info.main,
-          light: theme.light.info.light,
-          dark: theme.light.info.dark,
+        status: {
+          error: {
+            light: theme.light.error,
+            dark: theme.dark.error,
+          },
+          success: {
+            light: theme.light.success,
+            dark: theme.dark.success,
+          },
+          warning: {
+            light: theme.light.warning,
+            dark: theme.dark.warning,
+          },
+          info: {
+            light: theme.light.info,
+            dark: theme.dark.info,
+          },
         },
       },
-      // Tema oscuro
-      backgroundColor: {
-        dark: theme.dark.background.default,
-        'dark-paper': theme.dark.background.paper,
-        'dark-pink': theme.dark.background.pink,
+      // Transiciones
+      transitionProperty: {
+        'colors': 'background-color, border-color, color, fill, stroke',
       },
-      textColor: {
-        dark: theme.dark.text.primary,
-        'dark-secondary': theme.dark.text.secondary,
-        'dark-disabled': theme.dark.text.disabled,
+      transitionDuration: {
+        '250': '250ms',
       },
     },
   },

@@ -42,7 +42,7 @@ export default async function ProductList() {
       {products.map((product) => (
         <Link 
           key={product.id}
-          href={`/productos/${product.slug}`}
+          href={`/productos/${product.id}`}
           className="group bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden"
         >
           {/* Imagen del producto */}
@@ -52,6 +52,8 @@ export default async function ProductList() {
               alt={product.nombre}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
+              priority
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             />
             {product.enOferta && (
               <span className="absolute top-2 right-2 bg-pink-500 text-white text-sm px-3 py-1 rounded-full">

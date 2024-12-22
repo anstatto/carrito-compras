@@ -39,6 +39,8 @@ export default async function CategoryList() {
               width={400}
               height={300}
               className="w-full h-80 object-cover transform group-hover:scale-110 transition-transform duration-700"
+              priority
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             />
           ) : (
             <div className="w-full h-80 bg-gradient-to-br from-pink-100 to-pink-200">

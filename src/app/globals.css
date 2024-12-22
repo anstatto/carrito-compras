@@ -4,62 +4,107 @@
 
 @layer base {
   :root {
+    /* Colores primarios */
     --primary-main: #FF69B4;
     --primary-light: #FFC0CB;
     --primary-dark: #FF1493;
+    --primary-contrast: #FFFFFF;
+
+    /* Colores secundarios */
     --secondary-main: #FFB6C1;
     --secondary-light: #FFF0F5;
     --secondary-dark: #FF82AB;
+    --secondary-contrast: #333333;
+
+    /* Colores de fondo */
+    --background-default: #FFFFFF;
+    --background-paper: #FFF0F5;
+    --background-pink: #FFF0F5;
+
+    /* Colores de texto */
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --text-disabled: #999999;
   }
 
   .dark {
+    /* Colores primarios en modo oscuro */
     --primary-main: #FF82AB;
     --primary-light: #FF69B4;
     --primary-dark: #FF1493;
+    --primary-contrast: #FFFFFF;
+
+    /* Colores secundarios en modo oscuro */
     --secondary-main: #FFB6C1;
     --secondary-light: #FF82AB;
     --secondary-dark: #FF69B4;
+    --secondary-contrast: #FFFFFF;
+
+    /* Colores de fondo en modo oscuro */
+    --background-default: #1A1A1A;
+    --background-paper: #2D2D2D;
+    --background-pink: #2D1F26;
+
+    /* Colores de texto en modo oscuro */
+    --text-primary: #FFFFFF;
+    --text-secondary: #B3B3B3;
+    --text-disabled: #666666;
+  }
+
+  /* Transiciones globales */
+  * {
+    @apply transition-colors duration-200;
   }
 
   body {
-    @apply bg-background-default text-text-primary transition-colors duration-200;
-  }
-
-  .dark body {
-    @apply bg-dark text-dark transition-colors duration-200;
+    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-white;
   }
 }
 
 @layer components {
+  /* Botones */
   .btn-primary {
-    @apply bg-primary-main text-white 
-           hover:bg-primary-dark 
-           transition-colors duration-200
-           disabled:bg-primary-light disabled:cursor-not-allowed;
+    @apply px-4 py-2 rounded-full
+           bg-pink-500 text-white
+           hover:bg-pink-600 
+           disabled:bg-pink-300 disabled:cursor-not-allowed
+           transform hover:scale-105 transition-all duration-300;
   }
 
   .btn-secondary {
-    @apply bg-secondary-main text-secondary-contrastText 
-           hover:bg-secondary-dark 
-           transition-colors duration-200
-           disabled:bg-secondary-light disabled:cursor-not-allowed;
+    @apply px-4 py-2 rounded-full
+           bg-pink-200 text-gray-800
+           hover:bg-pink-300
+           disabled:bg-pink-100 disabled:cursor-not-allowed
+           transform hover:scale-105 transition-all duration-300;
   }
 
+  /* Tarjetas */
   .card {
-    @apply bg-background-paper dark:bg-dark-paper 
-           rounded-lg shadow-sm
-           transition-colors duration-200;
+    @apply bg-white dark:bg-gray-800
+           rounded-lg shadow-sm hover:shadow-md
+           p-4 transition-all duration-300;
   }
 
+  /* Inputs */
   .input {
-    @apply border border-gray-200 dark:border-gray-700 
-           rounded-lg px-4 py-2 
-           focus:ring-2 focus:ring-primary-main focus:border-transparent 
-           outline-none
+    @apply w-full px-4 py-2 rounded-full
+           border border-gray-200 dark:border-gray-700 
+           bg-white dark:bg-gray-800
+           text-gray-900 dark:text-white
+           focus:ring-2 focus:ring-pink-500 focus:border-transparent 
+           outline-none placeholder-gray-400 dark:placeholder-gray-500;
+  }
+
+  /* Enlaces */
+  .link {
+    @apply text-pink-500 hover:text-pink-600
+           dark:text-pink-400 dark:hover:text-pink-500
            transition-colors duration-200;
   }
 }
 
+/* Utilidades personalizadas */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -67,15 +112,43 @@
 }
 
 .hero-pattern {
-  background-color: #fff0f5;
-  background-image: radial-gradient(#ff69b4 0.5px, transparent 0.5px);
+  @apply bg-pink-50 dark:bg-gray-800;
+  background-image: radial-gradient(rgba(255, 105, 180, 0.5) 0.5px, transparent 0.5px);
   background-size: 10px 10px;
 }
 
 .card-hover {
-  transition: transform 0.2s ease-in-out;
+  @apply transition-transform duration-300 ease-in-out;
 }
 
 .card-hover:hover {
-  transform: translateY(-5px);
+  @apply transform -translate-y-1;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-pink-500 hover:bg-pink-600 rounded-full;
+}
+
+/* Selección de texto */
+::selection {
+  @apply bg-pink-500/20 text-pink-600 dark:text-pink-400;
 }
