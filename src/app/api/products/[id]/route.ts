@@ -14,9 +14,16 @@ export async function GET(request: Request, { params }: Params) {
     const producto = await prisma.producto.findUnique({
       where: {
         id: params.id
+      },
+      include: {
+        categoria: {
+          select: {
+            id: true,
+            nombre: true
+          }
+        }
       }
     })
-
     if (!producto) {
       return NextResponse.json(
         { error: 'Producto no encontrado' },
@@ -24,7 +31,7 @@ export async function GET(request: Request, { params }: Params) {
       )
     }
     return NextResponse.json(producto)
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Error al obtener producto:', error)
     return NextResponse.json(
       { error: 'Error al obtener el producto' },
@@ -46,6 +53,13 @@ export async function PUT(request: Request, { params }: Params) {
 
     const body = await request.json()
     
+    if (!body.nombre || !body.precio) {
+      return NextResponse.json(
+        { error: 'Nombre y precio son requeridos' },
+        { status: 400 }
+      )
+    }
+
     const producto = await prisma.producto.update({
       where: {
         id: params.id
@@ -78,6 +92,13 @@ export async function DELETE(request: Request, { params }: Params) {
       return NextResponse.json(
         { error: 'No autorizado' },
         { status: 401 }
+      )
+    }
+
+    if (!params.id) {
+      return NextResponse.json(
+        { error: 'ID de producto es requerido' },
+        { status: 400 }
       )
     }
 
