@@ -35,6 +35,14 @@ export async function POST(request: Request) {
 
     const body = await request.json()
     
+    // Asegurarse de que los campos requeridos estén presentes
+    if (!body.nombre || !body.precio || !body.slug || !body.sku) {
+      return NextResponse.json(
+        { error: 'Nombre, precio, slug y sku son requeridos' },
+        { status: 400 }
+      )
+    }
+
     const producto = await prisma.producto.create({
       data: {
         nombre: body.nombre,
@@ -42,7 +50,9 @@ export async function POST(request: Request) {
         precio: body.precio,
         categoria: body.categoria,
         existencias: body.existencias,
-        imagenes: body.imagenes || []
+        imagenes: body.imagenes || [],
+        slug: body.slug,
+        sku: body.sku
       }
     })
 

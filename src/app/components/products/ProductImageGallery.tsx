@@ -10,7 +10,7 @@ export default function ProductImageGallery({ images, name }: ProductImageGaller
     <div className="space-y-4">
       <div className="relative aspect-square">
         <Image
-          src={images[0] || '/placeholder.png'}
+          src={images[0] || '/imagenes/placeholder.png'}
           alt={name}
           fill
           sizes="(max-width: 768px) 100vw, 50vw"

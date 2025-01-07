@@ -34,7 +34,7 @@ export async function GET(request: Request, { params }: Params) {
   } catch (error) {
     console.error('Error al obtener producto:', error)
     return NextResponse.json(
-      { error: 'Error al obtener el producto' },
+      { error: 'Error al obtener el producto', details: (error as Error).message },
       { status: 500 }
     )
   }

@@ -25,7 +25,7 @@ export default function AddToCartButton({ product }: { product: Product }) {
       nombre: product.nombre,
       precio: product.precio,
       cantidad: 1,
-      imagen: product.imagen
+      imagen: product.imagen && product.imagen.length > 0 ? product.imagen[0] : '/images/placeholder.png',
     })
 
     showSuccess('¡Producto agregado al carrito!')
