@@ -62,7 +62,7 @@ export default function CartDropdown() {
                   <div key={item.id} className="flex gap-4 items-center">
                     <div className="relative w-16 h-16">
                       <Image
-                        src={item.imagenes && item.imagenes.length > 0 ? item.imagenes[0] : '/images/placeholder.png'}
+                        src={item.imagen && item.imagen.length > 0 ? item.imagen[0] : '/images/placeholder.png'}
                         alt={item.nombre}
                         fill
                         className="object-cover rounded"

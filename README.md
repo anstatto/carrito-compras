@@ -20,6 +20,21 @@ npx prisma generate
 # Para aplicar tus modelos a la base de datos
 npx prisma db push
 
+# Genera un secreto para NextAuth
+npm run generate-secret
+
+# O alternativamente, usar ts-node directamente:
+npx ts-node scripts/generate-secret.ts
+
+# Si usas el script de package.json:
+npm run seed
+
+# O usando prisma directamente:
+npx prisma db seed
+
+# O ejecutarlo directamente con ts-node:
+npx ts-node prisma/seed.ts
+
 ```
 
 Ejecuta el servidor de desarrollo:

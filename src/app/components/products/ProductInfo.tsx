@@ -1,37 +1,58 @@
 interface ProductInfoProps {
-  producto: any // Ajusta el tipo según tu modelo
+  producto: {
+    nombre: string
+    descripcion: string
+    precio: number
+    precioOferta?: number | null
+    enOferta: boolean
+    marca?: string | null
+    existencias: number
+    categoria: {
+      nombre: string
+    }
+  }
   addToCartButton: React.ReactNode
 }
 
 export default function ProductInfo({ producto, addToCartButton }: ProductInfoProps) {
+  const precioFinal = producto.enOferta && producto.precioOferta 
+    ? producto.precioOferta 
+    : producto.precio
+
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-        {producto.nombre}
-      </h1>
-      
-      <p className="text-2xl font-semibold text-pink-600 dark:text-pink-400">
-        ${producto.precio.toFixed(2)}
-      </p>
-      
-      <div className="prose dark:prose-invert max-w-none">
-        <p>{producto.descripcion}</p>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">{producto.nombre}</h1>
+        {producto.marca && (
+          <p className="text-gray-500">{producto.marca}</p>
+        )}
       </div>
 
-      <div className="flex items-center gap-4">
-        <span className={`px-3 py-1 rounded-full text-sm ${
-          producto.existencias > 0 
-            ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
-            : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-        }`}>
-          {producto.existencias > 0 ? 'En stock' : 'Agotado'}
+      <div className="flex items-baseline gap-4">
+        <span className="text-2xl font-bold text-gray-900">
+          ${precioFinal.toFixed(2)}
         </span>
-        
-        {producto.categoria && (
-          <span className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100">
-            {producto.categoria.nombre}
+        {producto.enOferta && producto.precioOferta && (
+          <span className="text-lg text-gray-500 line-through">
+            ${producto.precio.toFixed(2)}
           </span>
         )}
+      </div>
+
+      <p className="text-gray-600">{producto.descripcion}</p>
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">Categoría:</span>
+          <span className="text-gray-600">{producto.categoria.nombre}</span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <span className="font-medium">Disponibilidad:</span>
+          <span className={producto.existencias > 0 ? 'text-green-600' : 'text-red-600'}>
+            {producto.existencias > 0 ? 'En stock' : 'Agotado'}
+          </span>
+        </div>
       </div>
 
       {addToCartButton}

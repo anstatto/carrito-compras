@@ -1,11 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import ProductCard from '@/app/components/products/ProductCard'
 
-
 async function getOfertasProducts() {
   const products = await prisma.producto.findMany({
     where: {
-      enOferta: true // Asumiendo que tienes este campo en tu modelo
+      enOferta: true
+    },
+    include: {
+      imagenes: true
     }
   })
   return products
@@ -22,7 +24,19 @@ export default async function OfertasPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <ProductCard 
+            key={product.id} 
+            product={{
+              id: product.id,
+              nombre: product.nombre,
+              precio: Number(product.precio),
+              precioOferta: Number(product.precioOferta),
+              enOferta: product.enOferta,
+              slug: product.slug,
+             
+              imagenes: product.imagenes.map(img => ({url: img.url}))
+            }} 
+          />
         ))}
       </div>
     </main>

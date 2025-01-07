@@ -3,17 +3,19 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request })
-  
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET 
+  })
+
+  // Proteger rutas admin
   if (request.nextUrl.pathname.startsWith('/admin')) {
     if (!token) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
-  }
-
-  if (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/registro')) {
-    if (token) {
-      return NextResponse.redirect(new URL('/admin', request.url))
+    
+    if (token.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/', request.url))
     }
   }
 
@@ -21,5 +23,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/login', '/registro']
+  matcher: ['/admin/:path*']
 } 

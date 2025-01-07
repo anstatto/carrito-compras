@@ -1,56 +1,95 @@
-"use client"
+'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { FaImage, FaSave } from 'react-icons/fa'
+import { useSession } from 'next-auth/react'
 
-export default function CreateProductPage() {
+interface Product {
+  id: string
+  nombre: string
+  descripcion: string
+  precio: number
+  categoria: string
+  existencias: number
+  imagenes: string[]
+}
+
+export default function EditProductPage({ params }: { params: { id: string } }) {
   const router = useRouter()
+  const { data: session, status } = useSession()
   const [isLoading, setIsLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    nombre: '',
-    descripcion: '',
-    precio: '',
-    categoria: '',
-    existencias: '',
-    imagenes: [] as string[]
-  })
+  const [product, setProduct] = useState<Product | null>(null)
+
+  useEffect(() => {
+    if (status === 'loading') return
+
+    if (!session || session.user.role !== 'ADMIN') {
+      router.push('/')
+      return
+    }
+
+    const fetchProduct = async () => {
+      try {
+        const res = await fetch(`/api/products/${params.id}`)
+        if (res.ok) {
+          const data = await res.json()
+          setProduct(data)
+        } else {
+          throw new Error('Error al cargar el producto')
+        }
+      } catch (error) {
+        toast.error('Error al cargar el producto')
+        console.error(error)
+      }
+    }
+
+    fetchProduct()
+  }, [params.id, session, status, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
+      const res = await fetch(`/api/products/${params.id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...formData,
-          precio: parseFloat(formData.precio),
-          existencias: parseInt(formData.existencias)
-        }),
+        body: JSON.stringify(product),
       })
 
       if (res.ok) {
-        toast.success('Producto creado exitosamente')
+        toast.success('Producto actualizado exitosamente')
         router.push('/admin/products')
       } else {
-        throw new Error('Error al crear el producto')
+        throw new Error('Error al actualizar el producto')
       }
     } catch (error) {
-      toast.error('Error al crear el producto')
+      toast.error('Error al actualizar el producto')
       console.error(error)
     } finally {
       setIsLoading(false)
     }
   }
 
+  if (status === 'loading') {
+    return <div>Cargando...</div>
+  }
+
+  if (!session || session.user.role !== 'ADMIN') {
+    return null
+  }
+
+  if (!product) {
+    return <div>Cargando...</div>
+  }
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Crear Nuevo Producto</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Editar Producto</h1>
       
       <form onSubmit={handleSubmit} className="max-w-2xl bg-white p-6 rounded-lg shadow">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -60,8 +99,8 @@ export default function CreateProductPage() {
             </label>
             <input
               type="text"
-              value={formData.nombre}
-              onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+              value={product.nombre}
+              onChange={(e) => setProduct({...product, nombre: e.target.value})}
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-pink-500"
               required
             />
@@ -72,8 +111,8 @@ export default function CreateProductPage() {
               Descripción
             </label>
             <textarea
-              value={formData.descripcion}
-              onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
+              value={product.descripcion}
+              onChange={(e) => setProduct({...product, descripcion: e.target.value})}
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-pink-500"
               rows={4}
               required
@@ -87,8 +126,8 @@ export default function CreateProductPage() {
             <input
               type="number"
               step="0.01"
-              value={formData.precio}
-              onChange={(e) => setFormData({...formData, precio: e.target.value})}
+              value={product.precio}
+              onChange={(e) => setProduct({...product, precio: parseFloat(e.target.value)})}
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-pink-500"
               required
             />
@@ -100,8 +139,8 @@ export default function CreateProductPage() {
             </label>
             <input
               type="number"
-              value={formData.existencias}
-              onChange={(e) => setFormData({...formData, existencias: e.target.value})}
+              value={product.existencias}
+              onChange={(e) => setProduct({...product, existencias: parseInt(e.target.value)})}
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-pink-500"
               required
             />
@@ -112,8 +151,8 @@ export default function CreateProductPage() {
               Categoría
             </label>
             <select
-              value={formData.categoria}
-              onChange={(e) => setFormData({...formData, categoria: e.target.value})}
+              value={product.categoria}
+              onChange={(e) => setProduct({...product, categoria: e.target.value})}
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-pink-500"
               required
             >
@@ -151,7 +190,7 @@ export default function CreateProductPage() {
             className="bg-pink-500 text-white px-6 py-2 rounded-lg hover:bg-pink-600 flex items-center gap-2 disabled:opacity-50"
           >
             <FaSave />
-            {isLoading ? 'Guardando...' : 'Guardar Producto'}
+            {isLoading ? 'Guardando...' : 'Actualizar Producto'}
           </button>
         </div>
       </form>

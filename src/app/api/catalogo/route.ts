@@ -1,11 +1,15 @@
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
+
+type OrderBy = {
+  [key: string]: 'asc' | 'desc'
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     
-    // Parámetros de filtrado
     const categoria = searchParams.get('categoria')
     const precioMin = searchParams.get('precioMin')
     const precioMax = searchParams.get('precioMax')
@@ -13,25 +17,21 @@ export async function GET(request: Request) {
     const pagina = Math.max(1, parseInt(searchParams.get('pagina') || '1'))
     const porPagina = Math.max(1, parseInt(searchParams.get('porPagina') || '12'))
 
-    // Construir where con condiciones de precio
-    const where: any = {
-      AND: [
-        categoria ? { categoriaId: categoria } : {},
-        precioMin ? { precio: { gte: parseFloat(precioMin) } } : {},
-        precioMax ? { precio: { lte: parseFloat(precioMax) } } : {},
-      ]
+    const where: Prisma.ProductoWhereInput = {
+      activo: true,
+      ...(categoria && { categoriaId: categoria }),
+      ...(precioMin && { precio: { gte: new Prisma.Decimal(precioMin) } }),
+      ...(precioMax && { precio: { lte: new Prisma.Decimal(precioMax) } })
     }
 
-    // Configurar ordenamiento
-    const orderBy: any = {}
+    const orderBy: OrderBy = {}
     const [field, direction] = ordenar.split('_')
-    if (field === 'precio' || field === 'nombre' || field === 'createdAt') {
-      orderBy[field] = direction.toLowerCase()
+    if (['precio', 'nombre', 'creadoEl'].includes(field)) {
+      orderBy[field] = direction.toLowerCase() as 'asc' | 'desc'
     } else {
-      orderBy.nombre = 'asc' // ordenamiento por defecto
+      orderBy.nombre = 'asc'
     }
 
-    // Obtener productos y total
     const [productos, total] = await Promise.all([
       prisma.producto.findMany({
         where,
@@ -39,7 +39,17 @@ export async function GET(request: Request) {
           categoria: {
             select: {
               id: true,
-              nombre: true
+              nombre: true,
+              slug: true
+            }
+          },
+          imagenes: {
+            select: {
+              url: true,
+              alt: true
+            },
+            orderBy: {
+              orden: 'asc'
             }
           }
         },
@@ -50,8 +60,19 @@ export async function GET(request: Request) {
       prisma.producto.count({ where })
     ])
 
+    // Serializar los datos antes de enviarlos
+    const serializedProducts = productos.map(product => ({
+      ...product,
+      precio: Number(product.precio),
+      precioOferta: product.precioOferta ? Number(product.precioOferta) : null,
+      imagenes: product.imagenes.map(img => ({
+        url: img.url,
+        alt: img.alt || product.nombre
+      }))
+    }))
+
     return NextResponse.json({
-      productos,
+      productos: serializedProducts,
       total,
       pagina,
       porPagina,

@@ -24,80 +24,136 @@ async function main() {
         }
     })
 
-    // Categorías de cosméticos
+    // Crear categorías
     const categorias = await Promise.all([
         prisma.categoria.create({
             data: {
-                nombre: 'Cuidado Facial',
-                descripcion: 'Productos para el cuidado de la piel del rostro',
-                slug: 'cuidado-facial',
+                nombre: 'Facial',
+                descripcion: 'Productos para el cuidado facial',
                 imagen: '/categorias/facial.jpg',
-                activa: true
+                slug: 'facial',
             }
         }),
         prisma.categoria.create({
             data: {
-                nombre: 'Maquillaje',
-                descripcion: 'Productos de maquillaje y cosméticos decorativos',
-                slug: 'maquillaje',
-                imagen: '/categorias/maquillaje.jpg',
-                activa: true
-            }
-        }),
-        prisma.categoria.create({
-            data: {
-                nombre: 'Cuidado Corporal',
-                descripcion: 'Productos para el cuidado de la piel del cuerpo',
-                slug: 'cuidado-corporal',
+                nombre: 'Corporal',
+                descripcion: 'Productos para el cuidado corporal',
                 imagen: '/categorias/corporal.jpg',
-                activa: true
+                slug: 'corporal',
             }
         })
     ])
 
-    // Productos cosméticos
+    // Crear productos
     const productos = await Promise.all([
         prisma.producto.create({
             data: {
-                nombre: 'Crema Hidratante Facial',
-                descripcion: 'Crema hidratante con vitamina E para todo tipo de piel',
+                nombre: 'Crema Despigmentante',
+                descripcion: 'Crema facial para manchas y despigmentación',
                 precio: 29.99,
-                imagenes: ['/productos/crema-facial-1.jpg'],
-                slug: 'crema-hidratante-facial',
-                sku: 'CF001',
-                marca: 'NaturalCare',
+                slug: 'crema-despigmentante',
+                sku: 'CD001',
+                marca: 'Arlin Glow',
                 existencias: 50,
-                stockMinimo: 10,
-                activo: true,
-                categoriaId: categorias[0].id
+                categoriaId: categorias[0].id, // Facial
+                imagenes: {
+                    create: [
+                        {
+                            url: '/productos/crema_desPigmetaNte.jpeg',
+                            alt: 'Crema Despigmentante',
+                            principal: true,
+                            orden: 1
+                        }
+                    ]
+                }
             }
         }),
         prisma.producto.create({
             data: {
-                nombre: 'Base de Maquillaje',
-                descripcion: 'Base líquida de larga duración',
+                nombre: 'Crema Hidratante',
+                descripcion: 'Crema facial hidratante',
                 precio: 24.99,
-                imagenes: ['/images/productos/base-1.jpg'],
-                slug: 'base-maquillaje',
-                sku: 'MQ001',
-                marca: 'MakeupPro',
-                existencias: 30,
-                stockMinimo: 5,
-                categoriaId: categorias[1].id
+                slug: 'crema-hidratante',
+                sku: 'CH001',
+                marca: 'Arlin Glow',
+                existencias: 75,
+                categoriaId: categorias[0].id, // Facial
+                imagenes: {
+                    create: [
+                        {
+                            url: '/productos/crema_hidratante.jpeg',
+                            alt: 'Crema Hidratante',
+                            principal: true,
+                            orden: 1
+                        }
+                    ]
+                }
             }
         }),
         prisma.producto.create({
             data: {
-                nombre: 'Crema Corporal',
-                descripcion: 'Crema hidratante corporal con manteca de karité',
+                nombre: 'Exfoliante de Coco y Menta',
+                descripcion: 'Exfoliante corporal con coco y menta',
                 precio: 19.99,
-                imagenes: ['/images/productos/crema-corporal-1.jpg'],
-                slug: 'crema-corporal',
-                sku: 'CC001',
-                marca: 'BodyCare',
-                existencias: 40,
-                stockMinimo: 8,
-                categoriaId: categorias[2].id
+                slug: 'exfoliante-coco-menta',
+                sku: 'ECM001',
+                marca: 'Arlin Glow',
+                existencias: 60,
+                categoriaId: categorias[1].id, // Corporal
+                imagenes: {
+                    create: [
+                        {
+                            url: '/productos/Exfoliante_coco_menta.jpeg',
+                            alt: 'Exfoliante de Coco y Menta',
+                            principal: true,
+                            orden: 1
+                        }
+                    ]
+                }
+            }
+        }),
+        prisma.producto.create({
+            data: {
+                nombre: 'Exfoliante de Fresa',
+                descripcion: 'Exfoliante corporal con fresa',
+                precio: 19.99,
+                slug: 'exfoliante-fresa',
+                sku: 'EF001',
+                marca: 'Arlin Glow',
+                existencias: 45,
+                categoriaId: categorias[1].id, // Corporal
+                imagenes: {
+                    create: [
+                        {
+                            url: '/productos/Exfoliante_de_fresa.jpeg',
+                            alt: 'Exfoliante de Fresa',
+                            principal: true,
+                            orden: 1
+                        }
+                    ]
+                }
+            }
+        }),
+        prisma.producto.create({
+            data: {
+                nombre: 'Aceite Capilar',
+                descripcion: 'Aceite para el cuidado del cabello',
+                precio: 34.99,
+                slug: 'aceite-capilar',
+                sku: 'AC001',
+                marca: 'Arlin Glow',
+                existencias: 30,
+                categoriaId: categorias[1].id, // Corporal
+                imagenes: {
+                    create: [
+                        {
+                            url: '/productos/pelling_oil.jpeg',
+                            alt: 'Aceite Capilar',
+                            principal: true,
+                            orden: 1
+                        }
+                    ]
+                }
             }
         })
     ])

@@ -4,16 +4,15 @@ import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
+import { toast } from 'react-hot-toast'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
-    setError('')
 
     const formData = new FormData(e.currentTarget)
 
@@ -25,14 +24,23 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        setError('Credenciales inválidas')
+        toast.error('Credenciales inválidas')
         return
       }
 
-      router.push('/admin/dashboard')
+      // Obtener la sesión actualizada
+      const response = await fetch('/api/auth/session')
+      const session = await response.json()
+
+      if (session?.user?.role === 'ADMIN') {
+        router.push('/admin/dashboard')
+      } else {
+        router.push('/')
+      }
       router.refresh()
-    } catch (error) {
-      setError('Ocurrió un error al iniciar sesión')
+    } catch (err) {
+      console.error(err)
+      toast.error('Ocurrió un error al iniciar sesión')
     } finally {
       setIsLoading(false)
     }
@@ -48,12 +56,6 @@ export default function LoginPage() {
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
-          
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <input

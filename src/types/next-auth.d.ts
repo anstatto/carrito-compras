@@ -6,18 +6,32 @@ declare module "next-auth" {
     id: string
     email: string
     role: Role
+    nombre: string
+    apellido: string
+    activo: boolean
+    isAdmin?: boolean
   }
 
   interface Session {
     user: User & {
       id: string
+      email: string
       role: Role
+      nombre: string
+      apellido: string
+      activo: boolean
+      isAdmin?: boolean
     }
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
-    role?: Role
+    id: string
+    role: Role
+    nombre: string
+    apellido: string
+    activo: boolean
+    isAdmin?: boolean
   }
 } 

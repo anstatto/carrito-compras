@@ -1,10 +1,9 @@
-import Image from 'next/image'
 import Link from 'next/link'
-import { FaInstagram, FaWhatsapp, FaFacebook, FaStar } from 'react-icons/fa'
+import { FaWhatsapp, FaStar } from 'react-icons/fa'
 import ProductList from '@/app/components/products/ProductList'
 import CategoryList from '@/app/components/categories/CategoryList'
 
-export default function ShopPage() {
+export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-50 via-white to-pink-50">
       {/* Sección Hero con efecto glassmorphism modernizado y diseño temático */}
@@ -53,6 +52,7 @@ export default function ShopPage() {
           </div>
         </div>
       </section>
+
       {/* Sección de Productos Destacados */}
       <section className="bg-white/80 relative mt-80">
         <div className="container mx-auto px-4 py-10">
@@ -89,7 +89,7 @@ export default function ShopPage() {
                 <FaStar /><FaStar /><FaStar /><FaStar /><FaStar />
               </div>
               <p className="text-gray-600 mb-4">
-                "Los productos son increíbles, mi piel nunca se había sentido mejor"
+                &quot;Los productos son increíbles, mi piel nunca se había sentido mejor&quot;
               </p>
               <p className="font-medium text-gray-800">María G.</p>
             </div>
@@ -109,4 +109,4 @@ export default function ShopPage() {
       </a>
     </div>
   )
-}
+} 

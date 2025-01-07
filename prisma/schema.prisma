@@ -14,37 +14,59 @@ datasource db {
 }
 
 model Categoria {
-  id          String     @id @default(cuid())
-  nombre      String
-  descripcion String?
-  imagen      String?    // Imagen de la categoría
-  slug        String     @unique // URL amigable
-  productos   Producto[]
-  activa      Boolean    @default(true)
-  creadoEl    DateTime   @default(now())
-  actualizadoEl DateTime @updatedAt
+  id            String     @id @default(cuid())
+  nombre        String
+  descripcion   String?
+  imagen        String?    
+  slug          String     @unique 
+  productos     Producto[]
+  activa        Boolean    @default(true)
+  creadoEl      DateTime   @default(now()) @map("creado_el")
+  actualizadoEl DateTime   @updatedAt @map("actualizado_el")
+
+  @@map("categorias")
+  @@index([slug])
 }
 
 model Producto {
   id            String    @id @default(cuid())
   nombre        String
   descripcion   String
-  precio        Float
-  imagenes      String[]
-  slug          String    @unique // URL amigable
-  sku           String    @unique // Código único del producto
+  precio        Decimal   @db.Decimal(10,2)
+  imagenes      Image[]   
+  slug          String    @unique
+  sku           String    @unique
   marca         String?
   existencias   Int
-  stockMinimo   Int       @default(5) // Alerta cuando el stock baje de este número
-  enOferta      Boolean   @default(false)
-  precioOferta  Float?
+  stockMinimo   Int       @default(5) @map("stock_minimo")
+  enOferta      Boolean   @default(false) @map("en_oferta")
+  precioOferta  Decimal?  @db.Decimal(10,2) @map("precio_oferta")
   destacado     Boolean   @default(false)
   categoria     Categoria @relation(fields: [categoriaId], references: [id])
-  categoriaId   String
-  movimientos   MovimientoInventario[]
+  categoriaId   String    @map("categoria_id")
   activo        Boolean   @default(true)
-  creadoEl      DateTime  @default(now())
-  actualizadoEl DateTime  @updatedAt
+  creadoEl      DateTime  @default(now()) @map("creado_el")
+  actualizadoEl DateTime  @updatedAt @map("actualizado_el")
+
+  @@map("productos")
+  @@index([categoriaId])
+  @@index([slug])
+  @@index([sku])
+  MovimientoInventario MovimientoInventario[]
+}
+
+model Image {
+  id          String    @id @default(cuid())
+  url         String
+  alt         String?
+  principal   Boolean   @default(false)
+  producto    Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  productoId  String    @map("producto_id")
+  orden       Int       @default(0)
+  creadoEl    DateTime  @default(now()) @map("creado_el")
+
+  @@map("imagenes")
+  @@index([productoId])
 }
 
 model MovimientoInventario {
@@ -131,4 +153,6 @@ model User {
   activo      Boolean   @default(true)
   creadoEl    DateTime  @default(now())
   actualizadoEl DateTime @updatedAt
+
+  @@index([email, activo]) // Índice compuesto para búsquedas frecuentes
 }
