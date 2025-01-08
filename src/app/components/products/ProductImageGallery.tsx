@@ -53,9 +53,11 @@ export default function ProductImageGallery({ images, name }: Props) {
             >
               <Image
                 src={image.url}
-                alt={image.alt}
+                alt={image.alt || ''}
                 fill
-                className="object-cover"
+                priority={index === 0}
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
               />
             </button>
           ))}

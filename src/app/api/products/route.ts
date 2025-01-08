@@ -6,17 +6,35 @@ import { authOptions } from '@/lib/auth'
 export async function GET() {
   try {
     const productos = await prisma.producto.findMany({
-      where: {
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        precio: true,
+        existencias: true,
+        stockMinimo: true,
+        slug: true,
+        sku: true,
         activo: true,
-        existencias: {
-          gt: 0
-        }
-      },
-      include: {
-        categoria: true,
+        enOferta: true,
+        precioOferta: true,
+        destacado: true,
+        categoria: {
+          select: {
+            id: true,
+            nombre: true,
+            slug: true
+          }
+        },
         imagenes: {
           orderBy: {
             orden: 'asc'
+          },
+          select: {
+            id: true,
+            url: true,
+            alt: true,
+            principal: true
           }
         }
       },
@@ -25,7 +43,13 @@ export async function GET() {
       }
     })
     
-    return NextResponse.json(productos)
+    const productosFormateados = productos.map(producto => ({
+      ...producto,
+      precio: Number(producto.precio),
+      precioOferta: producto.precioOferta ? Number(producto.precioOferta) : null
+    }))
+    
+    return NextResponse.json(productosFormateados)
   } catch (error) {
     console.error('Error al obtener productos:', error)
     return NextResponse.json(
@@ -39,7 +63,6 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     
-    // Verificar si el usuario está autenticado y es admin
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'No autorizado' },
@@ -47,28 +70,54 @@ export async function POST(request: Request) {
       )
     }
 
-    const body = await request.json()
+    const formData = await request.formData()
+    const nombre = formData.get('nombre') as string
+    const descripcion = formData.get('descripcion') as string
+    const precio = Number(formData.get('precio'))
+    const existencias = Number(formData.get('existencias'))
+    const stockMinimo = Number(formData.get('stockMinimo'))
+    const categoriaId = formData.get('categoriaId') as string
+    const slug = formData.get('slug') as string
+    const sku = formData.get('sku') as string
+    const activo = formData.get('activo') === 'true'
+    const imagenes = formData.getAll('imagenes') as File[]
     
-    // Asegurarse de que los campos requeridos estén presentes
-    if (!body.nombre || !body.precio || !body.slug || !body.sku) {
+    if (!nombre || !precio || !categoriaId) {
       return NextResponse.json(
-        { error: 'Nombre, precio, slug y sku son requeridos' },
+        { error: 'Faltan campos requeridos' },
         { status: 400 }
       )
     }
 
     const producto = await prisma.producto.create({
       data: {
-        nombre: body.nombre,
-        descripcion: body.descripcion,
-        precio: body.precio,
-        categoria: body.categoria,
-        existencias: body.existencias,
-        imagenes: body.imagenes || [],
-        slug: body.slug,
-        sku: body.sku
+        nombre,
+        descripcion,
+        precio,
+        existencias,
+        stockMinimo,
+        categoriaId,
+        slug: slug || nombre.toLowerCase().replace(/ /g, '-'),
+        sku: sku || `SKU-${Date.now()}`,
+        activo
       }
     })
+
+    if (imagenes.length > 0) {
+      const imagenesData = await Promise.all(imagenes.map(async (imagen, index) => {
+        return {
+          url: '/placeholder-product.jpg',
+          alt: nombre,
+          principal: index === 0,
+          orden: index,
+          productoId: producto.id
+        }
+      }))
+
+      await prisma.image.createMany({
+        data: imagenesData
+      })
+    }
 
     return NextResponse.json(producto)
   } catch (error) {

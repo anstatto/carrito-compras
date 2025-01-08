@@ -41,6 +41,38 @@ async function main() {
                 imagen: '/categorias/corporal.jpg',
                 slug: 'corporal',
             }
+        }),
+        prisma.categoria.create({
+            data: {
+                nombre: 'Cabello',
+                descripcion: 'Productos para el cuidado del cabello',
+                imagen: '/categorias/cabello.jpg',
+                slug: 'cabello',
+            }
+        }),
+        prisma.categoria.create({
+            data: {
+                nombre: 'Fragancias',
+                descripcion: 'Perfumes y fragancias',
+                imagen: '/categorias/fragancias.jpg',
+                slug: 'fragancias',
+            }
+        }),
+        prisma.categoria.create({
+            data: {
+                nombre: 'Maquillaje',
+                descripcion: 'Productos de maquillaje',
+                imagen: '/categorias/maquillaje.jpg',
+                slug: 'maquillaje',
+            }
+        }),
+        prisma.categoria.create({
+            data: {
+                nombre: 'Skincare',
+                descripcion: 'Productos para el cuidado de la piel',
+                imagen: '/categorias/skincare.png',
+                slug: 'skincare',
+            }
         })
     ])
 
@@ -59,7 +91,7 @@ async function main() {
                 imagenes: {
                     create: [
                         {
-                            url: '/productos/crema_desPigmetaNte.jpeg',
+                            url: '/productos/crema_desPIGmeNtaNte.jpeg',
                             alt: 'Crema Despigmentante',
                             principal: true,
                             orden: 1
@@ -147,7 +179,7 @@ async function main() {
                 imagenes: {
                     create: [
                         {
-                            url: '/productos/pelling_oil.jpeg',
+                            url: '/productos/pelliing_oil.jpeg',
                             alt: 'Aceite Capilar',
                             principal: true,
                             orden: 1

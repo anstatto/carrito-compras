@@ -1,5 +1,12 @@
+'use client'
+
+import { motion } from 'framer-motion'
+import Link from 'next/link'
+import { FaArrowRight } from 'react-icons/fa'
+
 interface ProductInfoProps {
   producto: {
+    id: string
     nombre: string
     descripcion: string
     precio: number
@@ -9,53 +16,78 @@ interface ProductInfoProps {
     existencias: number
     categoria: {
       nombre: string
+      slug: string
     }
+    slug: string
   }
-  addToCartButton: React.ReactNode
 }
 
-export default function ProductInfo({ producto, addToCartButton }: ProductInfoProps) {
+export default function ProductInfo({ producto }: ProductInfoProps) {
   const precioFinal = producto.enOferta && producto.precioOferta 
     ? producto.precioOferta 
     : producto.precio
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">{producto.nombre}</h1>
+        <motion.h1 
+          className="text-3xl font-bold text-gray-900 dark:text-white"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          {producto.nombre}
+        </motion.h1>
         {producto.marca && (
-          <p className="text-gray-500">{producto.marca}</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{producto.marca}</p>
         )}
       </div>
 
       <div className="flex items-baseline gap-4">
-        <span className="text-2xl font-bold text-gray-900">
+        <span className="text-2xl font-bold text-pink-600">
           ${precioFinal.toFixed(2)}
         </span>
         {producto.enOferta && producto.precioOferta && (
-          <span className="text-lg text-gray-500 line-through">
+          <span className="text-lg text-gray-500 dark:text-gray-400 line-through">
             ${producto.precio.toFixed(2)}
           </span>
         )}
       </div>
 
-      <p className="text-gray-600">{producto.descripcion}</p>
+      <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+        {producto.descripcion}
+      </p>
 
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <span className="font-medium">Categoría:</span>
-          <span className="text-gray-600">{producto.categoria.nombre}</span>
+          <Link 
+            href={`/catalogo/${producto.categoria.slug}`}
+            className="text-pink-600 hover:text-pink-700"
+          >
+            {producto.categoria.nombre}
+          </Link>
         </div>
         
         <div className="flex items-center gap-2">
           <span className="font-medium">Disponibilidad:</span>
-          <span className={producto.existencias > 0 ? 'text-green-600' : 'text-red-600'}>
-            {producto.existencias > 0 ? 'En stock' : 'Agotado'}
+          <span className={`${producto.existencias > 0 ? 'text-green-600' : 'text-red-600'} font-medium`}>
+            {producto.existencias > 0 ? `${producto.existencias} unidades disponibles` : 'Agotado'}
           </span>
         </div>
       </div>
 
-      {addToCartButton}
-    </div>
+      <Link 
+        href={`/productos/${producto.slug}`}
+        className="inline-flex items-center gap-2 text-pink-600 hover:text-pink-700"
+      >
+        Ver detalles del producto
+        <FaArrowRight className="w-4 h-4" />
+      </Link>
+    </motion.div>
   )
 } 

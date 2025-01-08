@@ -174,7 +174,7 @@ export default function Header() {
                 alt="Arlin Glow Care"
                 width={100}
                 height={40}
-                className="h-10 w-auto"
+                style={{ width: 'auto', height: '40px' }}
                 priority
               />
             </Link>

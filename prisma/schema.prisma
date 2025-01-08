@@ -47,12 +47,13 @@ model Producto {
   activo        Boolean   @default(true)
   creadoEl      DateTime  @default(now()) @map("creado_el")
   actualizadoEl DateTime  @updatedAt @map("actualizado_el")
+  MovimientoInventario MovimientoInventario[]
+  items         ItemPedido[]
 
   @@map("productos")
   @@index([categoriaId])
   @@index([slug])
   @@index([sku])
-  MovimientoInventario MovimientoInventario[]
 }
 
 model Image {
@@ -89,20 +90,35 @@ enum TipoMovimiento {
 }
 
 model Pedido {
-  id              String          @id @default(cuid())
-  numero          String          @unique // Número de pedido para el cliente
-  cliente         User            @relation(fields: [clienteId], references: [id])
-  clienteId       String
-  productos       Json[]          // Arreglo de productos comprados
-  subtotal        Float
-  impuestos       Float
-  total           Float
-  estado          EstadoPedido    @default(PENDIENTE)
-  metodoPago      MetodoPago
-  direccionEnvio  DireccionEnvio?
-  notas           String?
-  creadoEl        DateTime        @default(now())
-  actualizadoEl   DateTime        @updatedAt
+  id            String        @id @default(cuid())
+  numero        String        @unique
+  clienteId     String
+  cliente       User          @relation(fields: [clienteId], references: [id])
+  items         ItemPedido[]
+  total         Decimal       @default(0)
+  estado        EstadoPedido  @default(PENDIENTE)
+  metodoPago    String?
+  direccion     String?
+  notas         String?
+  creadoEl      DateTime      @default(now())
+  actualizadoEl DateTime      @updatedAt
+
+  @@index([clienteId, estado])
+}
+
+model ItemPedido {
+  id          String   @id @default(cuid())
+  pedidoId    String
+  pedido      Pedido   @relation(fields: [pedidoId], references: [id])
+  productoId  String
+  producto    Producto @relation(fields: [productoId], references: [id])
+  cantidad    Int
+  precioUnit  Decimal
+  subtotal    Decimal
+  creadoEl    DateTime @default(now())
+
+  @@index([pedidoId])
+  @@index([productoId])
 }
 
 enum EstadoPedido {
@@ -119,20 +135,6 @@ enum MetodoPago {
   TRANSFERENCIA
   PAYPAL
   EFECTIVO
-}
-
-model DireccionEnvio {
-  id          String   @id @default(cuid())
-  pedido      Pedido   @relation(fields: [pedidoId], references: [id])
-  pedidoId    String   @unique
-  calle       String
-  numero      String
-  colonia     String
-  ciudad      String
-  estado      String
-  cp          String
-  telefono    String
-  referencias String?
 }
 
 enum Role {
