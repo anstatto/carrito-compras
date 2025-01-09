@@ -2,24 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import ProductCard from './ProductCard'
-
-interface Product {
-  id: string
-  nombre: string
-  precio: number
-  precioOferta: number | null
-  enOferta: boolean
-  imagenes: {
-    url: string
-    alt?: string
-  }[]
-  slug: string
-  destacado: boolean
-  existencias: number
-}
+import { ProductView } from '@/interfaces/Product'
 
 export default function ProductList() {
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<ProductView[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,8 +50,11 @@ export default function ProductList() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} />
+      {products.map((product: ProductView) => (
+        <ProductCard 
+          key={product.id} 
+          product={product}
+        />
       ))}
     </div>
   )

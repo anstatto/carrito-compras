@@ -2,23 +2,83 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from '@/lib/auth'
+import { Prisma } from '@prisma/client'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const productos = await prisma.producto.findMany({
-      select: {
-        id: true,
-        nombre: true,
-        descripcion: true,
-        precio: true,
-        existencias: true,
-        stockMinimo: true,
-        slug: true,
-        sku: true,
-        activo: true,
+    const { searchParams } = new URL(request.url)
+    const destacado = searchParams.get('destacado') === 'true'
+    
+    const where: Prisma.ProductoWhereInput = {
+      activo: true,
+      ...(destacado && { destacado: true }),
+      ...(searchParams.get('categoria') && { 
+        categoriaId: searchParams.get('categoria') || undefined
+      }),
+      ...(searchParams.get('enOferta') === 'true' && { 
         enOferta: true,
-        precioOferta: true,
-        destacado: true,
+        precioOferta: {
+          not: null,
+          gt: 0
+        }
+      }),
+      ...((searchParams.get('precioMin') || searchParams.get('precioMax')) && {
+        AND: [
+          searchParams.get('precioMin') ? {
+            precio: { gte: new Prisma.Decimal(searchParams.get('precioMin')!) }
+          } : {},
+          searchParams.get('precioMax') ? {
+            precio: { lte: new Prisma.Decimal(searchParams.get('precioMax')!) }
+          } : {}
+        ].filter(Boolean)
+      }),
+      ...(searchParams.get('buscar') && {
+        OR: [
+          { 
+            nombre: { 
+              contains: searchParams.get('buscar') || '',
+              mode: Prisma.QueryMode.insensitive
+            }
+          },
+          { 
+            descripcion: { 
+              contains: searchParams.get('buscar') || '',
+              mode: Prisma.QueryMode.insensitive
+            }
+          }
+        ]
+      })
+    }
+
+    let orderBy: Prisma.ProductoOrderByWithRelationInput = { 
+      creadoEl: 'desc' 
+    }
+    
+    switch (searchParams.get('ordenar')) {
+      case 'precio_asc':
+        orderBy = { precio: 'asc' }
+        break
+      case 'precio_desc':
+        orderBy = { precio: 'desc' }
+        break
+      case 'nombre_asc':
+        orderBy = { nombre: 'asc' }
+        break
+      case 'nombre_desc':
+        orderBy = { nombre: 'desc' }
+        break
+      case 'ofertas':
+        orderBy = {
+          enOferta: 'desc',
+          precioOferta: 'asc'
+        }
+        break
+    }
+
+    const productos = await prisma.producto.findMany({
+      where,
+      orderBy,
+      include: {
         categoria: {
           select: {
             id: true,
@@ -27,33 +87,23 @@ export async function GET() {
           }
         },
         imagenes: {
-          orderBy: {
-            orden: 'asc'
-          },
           select: {
-            id: true,
             url: true,
             alt: true,
             principal: true
+          },
+          orderBy: {
+            orden: 'asc'
           }
         }
-      },
-      orderBy: {
-        creadoEl: 'desc'
       }
     })
-    
-    const productosFormateados = productos.map(producto => ({
-      ...producto,
-      precio: Number(producto.precio),
-      precioOferta: producto.precioOferta ? Number(producto.precioOferta) : null
-    }))
-    
-    return NextResponse.json(productosFormateados)
+
+    return NextResponse.json(productos)
   } catch (error) {
-    console.error('Error al obtener productos:', error)
+    console.error('Error:', error)
     return NextResponse.json(
-      { error: 'Error al obtener los productos' },
+      { error: 'Error al obtener productos' },
       { status: 500 }
     )
   }

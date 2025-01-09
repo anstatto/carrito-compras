@@ -24,13 +24,17 @@ async function findFile(fileName: string): Promise<{ dir: string; path: string }
   return null
 }
 
-export async function DELETE(request: Request, { params }: FileParams) {
+export async function DELETE(
+  request: Request, 
+  { params }: { params: { name: string } }
+) {
   try {
-    const file = await findFile(params.name)
+    const fileName = await Promise.resolve(params.name)
+    const file = await findFile(fileName)
     
     if (!file) {
       return NextResponse.json(
-        { error: 'Imagen no encontrada' },
+        { error: 'Archivo no encontrado' },
         { status: 404 }
       )
     }
@@ -38,9 +42,9 @@ export async function DELETE(request: Request, { params }: FileParams) {
     await unlink(file.path)
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error al eliminar imagen:', error)
+    console.error('Error al eliminar archivo:', error)
     return NextResponse.json(
-      { error: 'Error al eliminar la imagen' },
+      { error: 'Error al eliminar el archivo' },
       { status: 500 }
     )
   }

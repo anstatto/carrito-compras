@@ -1,15 +1,23 @@
+export interface ProductImage {
+  url: string
+  alt: string | null
+}
+
 export interface ProductFormData {
   id?: string
   nombre: string
   descripcion: string
   precio: number
-  categoriaId: string
   existencias: number
   stockMinimo: number
-  imagenes: string[]
+  categoriaId: string
+  imagenes: ProductImage[]
   activo: boolean
-  sku: string
-  slug: string
+  enOferta: boolean
+  precioOferta?: number | null
+  destacado: boolean
+  sku?: string
+  slug?: string
 }
 
 export interface Product extends ProductFormData {
@@ -17,11 +25,29 @@ export interface Product extends ProductFormData {
   categoria: {
     id: string
     nombre: string
+    slug: string
   }
-  imagenes: {
-    url: string
-    alt?: string
-  }[]
   creadoEl: string
   actualizadoEl: string
+}
+
+// Interfaz específica para mostrar productos en la tienda
+export interface ProductView {
+  id: string
+  nombre: string
+  descripcion: string
+  precio: number
+  precioOferta: number | null
+  enOferta: boolean
+  imagenes: {
+    url: string
+    alt: string | null
+  }[]
+  slug: string
+  categoria: {
+    id: string
+    nombre: string
+    slug: string
+  }
+  existencias: number
 } 

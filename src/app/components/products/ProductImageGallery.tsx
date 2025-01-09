@@ -2,14 +2,10 @@
 
 import Image from 'next/image'
 import { useState } from 'react'
-
-interface ImageType {
-  url: string
-  alt: string
-}
+import { ProductImage } from '@/interfaces/Product'
 
 interface Props {
-  images: ImageType[]
+  images: ProductImage[]
   name: string
 }
 
@@ -33,8 +29,8 @@ export default function ProductImageGallery({ images, name }: Props) {
     <div className="space-y-4">
       <div className="aspect-square relative bg-gray-100 rounded-lg">
         <Image
-          src={images[selectedImage].url}
-          alt={images[selectedImage].alt}
+          src={images[selectedImage].url ?? ''}
+          alt={images[selectedImage].alt ?? name}
           fill
           className="object-cover rounded-lg"
           priority
@@ -53,7 +49,7 @@ export default function ProductImageGallery({ images, name }: Props) {
             >
               <Image
                 src={image.url}
-                alt={image.alt || ''}
+                alt={image.alt || name}
                 fill
                 priority={index === 0}
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

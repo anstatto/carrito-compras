@@ -1,12 +1,14 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
-import { FaFilter } from 'react-icons/fa'
+import { useState, useEffect } from 'react'
+import { FaFilter, FaPercent, FaTrash } from 'react-icons/fa'
+import { motion, AnimatePresence } from 'framer-motion'
 
 type Categoria = {
   id: string
   nombre: string
+  productCount?: number
 }
 
 export default function FilterSidebar({ 
@@ -22,43 +24,85 @@ export default function FilterSidebar({
     min: currentFilters.precioMin || '',
     max: currentFilters.precioMax || ''
   })
+  const [activeFilters, setActiveFilters] = useState<string[]>([])
+
+  // Detectar filtros activos
+  useEffect(() => {
+    const filters = []
+    if (currentFilters.categoria) filters.push('categoria')
+    if (currentFilters.precioMin || currentFilters.precioMax) filters.push('precio')
+    if (currentFilters.enOferta) filters.push('ofertas')
+    setActiveFilters(filters)
+  }, [currentFilters])
 
   const handleFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
+    
     if (value) {
       params.set(key, value)
     } else {
       params.delete(key)
     }
-    params.set('pagina', '1') // Reset página al filtrar
-    router.push(`/catalogo?${params.toString()}`)
+    
+    params.delete('pagina')
+    router.push(`/catalogo?${params.toString()}`, { scroll: false })
   }
 
   const handlePriceFilter = () => {
     const params = new URLSearchParams(searchParams.toString())
-    if (priceRange.min) params.set('precioMin', priceRange.min)
-    if (priceRange.max) params.set('precioMax', priceRange.max)
-    params.set('pagina', '1')
-    router.push(`/catalogo?${params.toString()}`)
+    
+    if (priceRange.min && Number(priceRange.min) >= 0) {
+      params.set('precioMin', priceRange.min)
+    } else {
+      params.delete('precioMin')
+    }
+    
+    if (priceRange.max && Number(priceRange.max) > 0) {
+      params.set('precioMax', priceRange.max)
+    } else {
+      params.delete('precioMax')
+    }
+    
+    params.delete('pagina')
+    router.push(`/catalogo?${params.toString()}`, { scroll: false })
+  }
+
+  const clearFilters = () => {
+    setPriceRange({ min: '', max: '' })
+    router.push('/catalogo')
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm sticky top-4">
-      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-        <FaFilter />
-        Filtros
-      </h2>
+    <motion.div 
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="bg-white rounded-xl shadow-lg p-6 sticky top-4"
+    >
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <FaFilter className="text-pink-500" />
+          Filtros
+        </h2>
+        {activeFilters.length > 0 && (
+          <button
+            onClick={clearFilters}
+            className="text-sm text-gray-500 hover:text-pink-500 flex items-center gap-1"
+          >
+            <FaTrash size={12} />
+            Limpiar
+          </button>
+        )}
+      </div>
 
       {/* Categorías */}
       <div className="mb-8">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Categorías
-        </h3>
+        <h3 className="text-lg font-medium mb-4">Categorías</h3>
         <div className="space-y-2">
           {categorias.map((categoria) => (
-            <label 
+            <motion.label 
               key={categoria.id}
-              className="flex items-center gap-2 text-gray-600 dark:text-gray-300 cursor-pointer"
+              whileHover={{ x: 4 }}
+              className="flex items-center gap-2 cursor-pointer group"
             >
               <input
                 type="radio"
@@ -68,10 +112,20 @@ export default function FilterSidebar({
                 onChange={(e) => handleFilter('categoria', e.target.value)}
                 className="text-pink-500 focus:ring-pink-500"
               />
-              {categoria.nombre}
-            </label>
+              <span className="text-gray-700 group-hover:text-pink-500">
+                {categoria.nombre}
+                {categoria.productCount && (
+                  <span className="text-sm text-gray-400 ml-1">
+                    ({categoria.productCount})
+                  </span>
+                )}
+              </span>
+            </motion.label>
           ))}
-          <label className="flex items-center gap-2 text-gray-600 dark:text-gray-300 cursor-pointer">
+          <motion.label 
+            whileHover={{ x: 4 }}
+            className="flex items-center gap-2 cursor-pointer group"
+          >
             <input
               type="radio"
               name="categoria"
@@ -80,53 +134,94 @@ export default function FilterSidebar({
               onChange={() => handleFilter('categoria', '')}
               className="text-pink-500 focus:ring-pink-500"
             />
-            Todas las categorías
-          </label>
+            <span className="text-gray-700 group-hover:text-pink-500">
+              Todas las categorías
+            </span>
+          </motion.label>
         </div>
       </div>
 
       {/* Rango de precios */}
       <div className="mb-8">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Rango de precios
-        </h3>
+        <h3 className="text-lg font-medium mb-4">Rango de precios</h3>
         <div className="space-y-4">
-          <input
-            type="number"
-            placeholder="Precio mínimo"
-            value={priceRange.min}
-            onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
-            className="w-full px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 
-                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                     focus:ring-2 focus:ring-pink-500 outline-none"
-          />
-          <input
-            type="number"
-            placeholder="Precio máximo"
-            value={priceRange.max}
-            onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
-            className="w-full px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 
-                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                     focus:ring-2 focus:ring-pink-500 outline-none"
-          />
-          <button
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <input
+                type="number"
+                min="0"
+                placeholder="Mín"
+                value={priceRange.min}
+                onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
+                className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex-1">
+              <input
+                type="number"
+                min="0"
+                placeholder="Máx"
+                value={priceRange.max}
+                onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
+                className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handlePriceFilter}
-            className="w-full px-4 py-2 bg-pink-500 text-white rounded-full 
-                     hover:bg-pink-600 transition-colors"
+            className="w-full px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
           >
             Aplicar filtro
-          </button>
+          </motion.button>
         </div>
       </div>
 
-      {/* Botón para limpiar filtros */}
-      <button
-        onClick={() => router.push('/catalogo')}
-        className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 
-                 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-      >
-        Limpiar filtros
-      </button>
-    </div>
+      {/* Filtros adicionales */}
+      <div className="space-y-3">
+        <motion.label 
+          whileHover={{ x: 4 }}
+          className="flex items-center gap-2 cursor-pointer group"
+        >
+          <input
+            type="checkbox"
+            checked={currentFilters.enOferta === 'true'}
+            onChange={(e) => handleFilter('enOferta', e.target.checked ? 'true' : '')}
+            className="text-pink-500 focus:ring-pink-500"
+          />
+          <span className="flex items-center gap-2 text-gray-700 group-hover:text-pink-500">
+            <FaPercent className="text-pink-500" />
+            Solo ofertas
+          </span>
+        </motion.label>
+      </div>
+
+      {/* Indicador de filtros activos */}
+      <AnimatePresence>
+        {activeFilters.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="mt-6 pt-6 border-t"
+          >
+            <div className="text-sm text-gray-500">
+              Filtros activos: {activeFilters.length}
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {activeFilters.map(filter => (
+                <span
+                  key={filter}
+                  className="px-2 py-1 bg-pink-100 text-pink-700 rounded-full text-sm"
+                >
+                  {filter}
+                </span>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   )
 } 

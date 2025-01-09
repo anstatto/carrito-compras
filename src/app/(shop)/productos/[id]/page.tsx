@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import ProductContent from '@/app/components/products/ProductContent'
 import Loading from './loading'
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 // Función segura para obtener el producto
 async function getProductById(id: string) {
@@ -100,8 +101,31 @@ export default async function ProductPage({
   return (
     <main className="container mx-auto px-4 py-8 min-h-screen">
       <Suspense fallback={<Loading />}>
-        <ProductContent producto={producto} />
+        <div className="max-w-7xl mx-auto">
+          <nav className="mb-4 text-sm breadcrumbs">
+            <ul className="flex items-center space-x-2 text-gray-500">
+              <li><Link href="/productos">Productos</Link></li>
+              <li>•</li>
+              <li><Link href={`/productos/categoria/${producto.categoria.slug}`}>{producto.categoria.nombre}</Link></li>
+              <li>•</li>
+              <li className="text-gray-900 font-medium">{producto.nombre}</li>
+            </ul>
+          </nav>
+          <ProductContent producto={producto} />
+        </div>
       </Suspense>
     </main>
   )
+}
+
+// Optimización de rutas estáticas
+export async function generateStaticParams() {
+  const productos = await prisma.producto.findMany({
+    where: { activo: true },
+    select: { id: true, slug: true }
+  })
+
+  return productos.map(producto => ({
+    id: producto.slug
+  }))
 }

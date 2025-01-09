@@ -4,6 +4,15 @@ import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { compare } from "bcrypt"
 import { Role } from "@prisma/client"
+import { getServerSession } from "next-auth"
+
+export async function verifyAdmin() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user || session.user.role !== 'ADMIN') {
+    throw new Error('No autorizado')
+  }
+  return session
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),

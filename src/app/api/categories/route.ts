@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     
     return NextResponse.json(categoria)
   } catch (error) {
-    console.error('Error al crear categoría:', error)
+    console.error('Error:', error)
     return NextResponse.json(
       { error: 'Error al crear la categoría' },
       { status: 500 }
@@ -33,6 +33,9 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     const categorias = await prisma.categoria.findMany({
+      include: {
+        productos: true
+      },
       orderBy: {
         nombre: 'asc'
       }
@@ -40,7 +43,7 @@ export async function GET() {
     
     return NextResponse.json(categorias)
   } catch (error) {
-    console.error('Error al obtener categorías:', error)
+    console.error('Error:', error)
     return NextResponse.json(
       { error: 'Error al obtener las categorías' },
       { status: 500 }

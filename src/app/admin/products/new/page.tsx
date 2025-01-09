@@ -7,7 +7,7 @@ import { ProductForm } from '@/app/admin/products/_components/ProductForm'
 import type { ProductFormData } from '@/interfaces/Product'
 
 export default function NewProductPage() {
-  const [formData, setFormData] = useState<ProductFormData>({
+  const initialData: ProductFormData = {
     nombre: '',
     descripcion: '',
     precio: 0,
@@ -16,9 +16,13 @@ export default function NewProductPage() {
     stockMinimo: 5,
     imagenes: [],
     activo: true,
+    enOferta: false,
+    destacado: false,
     sku: '',
     slug: ''
-  })
+  }
+
+  const [formData, setFormData] = useState<ProductFormData>(initialData)
 
   return (
     <div className="max-w-4xl mx-auto p-6">

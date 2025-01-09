@@ -54,6 +54,12 @@ model Producto {
   @@index([categoriaId])
   @@index([slug])
   @@index([sku])
+  @@index([enOferta])
+  @@index([precio])
+  @@index([precioOferta])
+  @@index([destacado])
+  @@index([activo, enOferta])
+  @@index([categoriaId, activo])
 }
 
 model Image {

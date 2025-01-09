@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import ProductCard from '@/app/components/products/ProductCard'
 import type { Metadata } from 'next'
+import { ProductView } from '@/interfaces/Product'
 
 export const metadata: Metadata = {
   title: 'Catálogo - Arlin Glow Care',
@@ -61,20 +62,24 @@ export default async function CategoryPage({ params }: { params: { slug: string 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {category.productos.map((product) => (
             <ProductCard key={product.id} product={{
-              ...product,
+              id: product.id,
+              nombre: product.nombre,
+              descripcion: product.descripcion,
               precio: Number(product.precio),
-              slug: product.id,
-              imagenes: product.imagenes?.map((img: { url: string; alt: string | null }) => ({
+              precioOferta: product.precioOferta ? Number(product.precioOferta) : null,
+              enOferta: product.enOferta,
+              imagenes: product.imagenes?.map(img => ({
                 url: img.url,
                 alt: img.alt || product.nombre
               })) || [],
-              precioOferta: product.precioOferta ? Number(product.precioOferta) : null,
+              slug: product.slug,
               categoria: {
                 id: category.id,
                 nombre: category.nombre,
                 slug: category.slug
-              }
-            }} />
+              },
+              existencias: product.existencias
+            } satisfies ProductView} />
           ))}
         </div>
 

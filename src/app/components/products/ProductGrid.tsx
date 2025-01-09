@@ -1,34 +1,49 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import Pagination from '../ui/Pagination'
 import ProductCard from './ProductCard'
+import { ProductView } from '@/interfaces/Product'
 
-type Product = {
-  id: string
-  nombre: string
-  precio: number
-  precioOferta: number | null
-  enOferta?: boolean
-  imagenes: { url: string; alt: string | null }[]
-  descripcion: string
-  categoria: {
-    id: string
-    nombre: string
-    slug: string
-  }
-  slug: string
-}
-
-type ProductGridProps = {
-  products: Product[]
+interface ProductGridProps {
+  products: ProductView[]
   total: number
   currentPage: number
   itemsPerPage: number
+  currentSort: string
 }
 
-export default function ProductGrid({ products, total, currentPage, itemsPerPage }: ProductGridProps) {
+export default function ProductGrid({ 
+  products, 
+  total, 
+  currentPage, 
+  itemsPerPage, 
+  currentSort 
+}: ProductGridProps) {
   const totalPages = Math.ceil(total / itemsPerPage)
+
+  const sortProducts = (products: ProductView[]): ProductView[] => {
+    const sorted = [...products]
+    
+    if (currentSort === 'ofertas') {
+      return sorted.sort((a, b) => {
+        // Primero productos en oferta
+        if (a.enOferta && !b.enOferta) return -1
+        if (!a.enOferta && b.enOferta) return 1
+        
+        // Si ambos están en oferta, ordenar por mayor descuento
+        if (a.enOferta && b.enOferta) {
+          const descuentoA = ((a.precio - (a.precioOferta || 0)) / a.precio) * 100
+          const descuentoB = ((b.precio - (b.precioOferta || 0)) / b.precio) * 100
+          return descuentoB - descuentoA
+        }
+        
+        return 0
+      })
+    }
+    
+    return sorted
+  }
 
   if (!products.length) {
     return (
@@ -44,6 +59,8 @@ export default function ProductGrid({ products, total, currentPage, itemsPerPage
     )
   }
 
+  const sortedProducts = sortProducts(products)
+
   return (
     <div className="space-y-8">
       <motion.div 
@@ -52,21 +69,19 @@ export default function ProductGrid({ products, total, currentPage, itemsPerPage
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        {products.map((product, index) => (
-          <motion.div
-            key={product.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
-          >
-            <ProductCard 
-              product={{
-                ...product,
-                slug: product.id
-              }} 
-            />
-          </motion.div>
-        ))}
+        <AnimatePresence mode="popLayout">
+          {sortedProducts.map((product, index) => (
+            <motion.div
+              key={product.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3, delay: index * 0.1 }}
+            >
+              <ProductCard product={product} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </motion.div>
 
       {totalPages > 1 && (

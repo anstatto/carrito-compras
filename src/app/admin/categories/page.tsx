@@ -5,10 +5,10 @@ import { useSession } from 'next-auth/react'
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaEye, FaEyeSlash } from 'react-icons/fa'
 import { toast } from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import type { Category } from '@/interfaces/Category'
+import { OptimizedImage } from '@/components/OptimizedImage'
 
 export default function CategoriesPage() {
   const { data: session, status } = useSession()
@@ -135,19 +135,27 @@ export default function CategoriesPage() {
               className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100 group"
             >
               <div className="flex items-center gap-6">
-                <div className="relative h-20 w-20 rounded-xl overflow-hidden shadow-md group-hover:scale-105 transition-transform">
-                  <Image
+                <Link 
+                  href={`/admin/categories/${category.id}`}
+                  className="relative h-20 w-20 rounded-xl overflow-hidden shadow-md group-hover:scale-105 transition-transform"
+                >
+                  <OptimizedImage
                     src={category.imagen || '/placeholder.jpg'}
                     alt={category.nombre}
-                    fill
-                    className="object-cover"
+                    sizes="80px"
+                    priority={true}
+                    className="rounded-xl"
+                    fill={true}
                   />
-                </div>
-                
-                <div className="flex-1">
+                </Link>
+
+                <Link 
+                  href={`/admin/categories/${category.id}`}
+                  className="flex-1 hover:opacity-75 transition-opacity"
+                >
                   <h3 className="text-xl font-semibold text-gray-800">{category.nombre}</h3>
                   <p className="text-gray-600 mt-1">{category.descripcion}</p>
-                </div>
+                </Link>
 
                 <div className="flex items-center gap-3">
                   <button

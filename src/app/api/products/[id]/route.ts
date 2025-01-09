@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { Prisma } from '@prisma/client'
+
 
 interface Params {
   params: {
@@ -148,6 +150,115 @@ export async function DELETE(request: Request, { params }: Params) {
     console.error('Error al eliminar producto:', error)
     return NextResponse.json(
       { error: 'Error al eliminar el producto' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const data = await request.json()
+
+    // Si solo es activar/desactivar, cambiar oferta o destacado
+    if (data.activo !== undefined || data.enOferta !== undefined || data.destacado !== undefined) {
+      const producto = await prisma.producto.update({
+        where: { 
+          id: params.id 
+        },
+        data: {
+          activo: data.activo,
+          enOferta: data.enOferta,
+          destacado: data.destacado,
+          precioOferta: data.precioOferta ? new Prisma.Decimal(data.precioOferta) : undefined,
+          actualizadoEl: new Date()
+        },
+        include: {
+          categoria: true,
+          imagenes: {
+            select: {
+              id: true,
+              url: true,
+              alt: true
+            }
+          }
+        }
+      })
+
+      return NextResponse.json(producto)
+    }
+
+    // Si es actualización completa del producto
+    const producto = await prisma.producto.update({
+      where: { 
+        id: params.id 
+      },
+      data: {
+        nombre: data.nombre,
+        descripcion: data.descripcion,
+        precio: new Prisma.Decimal(data.precio),
+        existencias: parseInt(String(data.existencias)),
+        stockMinimo: parseInt(String(data.stockMinimo)),
+        categoriaId: data.categoriaId,
+        sku: data.sku,
+        slug: data.slug,
+        destacado: data.destacado,
+        actualizadoEl: new Date()
+      },
+      include: {
+        categoria: true,
+        imagenes: {
+          select: {
+            id: true,
+            url: true,
+            alt: true,
+            principal: true,
+            orden: true
+          }
+        }
+      }
+    })
+
+    return NextResponse.json(producto)
+  } catch (error) {
+    console.error('Error al actualizar producto:', error)
+    return NextResponse.json(
+      { error: 'Error al actualizar producto', details: (error as Error).message },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const data = await request.json()
+    
+    const product = await prisma.producto.create({
+      data: {
+        ...data,
+        precio: new Prisma.Decimal(data.precio),
+        precioOferta: data.enOferta && data.precioOferta 
+          ? new Prisma.Decimal(data.precioOferta) 
+          : null
+      },
+      include: {
+        categoria: true,
+        imagenes: true
+      }
+    })
+
+    return NextResponse.json(product)
+  } catch (error) {
+    console.error('Error:', error)
+    return NextResponse.json(
+      { error: 'Error al crear el producto' },
       { status: 500 }
     )
   }

@@ -6,10 +6,12 @@ import { FaPlus, FaTimes, FaImages } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-hot-toast'
 import GalleryPage from '../../gallery/page'
+import { Portal } from '@/components/Portal'
+import { ProductImage } from '@/interfaces/Product'
 
 interface ImageSelectorProps {
-  currentImages: string[]
-  onImagesChange: (urls: string[]) => void
+  currentImages: ProductImage[]
+  onImagesChange: (images: ProductImage[]) => void
 }
 
 export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorProps) {
@@ -38,7 +40,7 @@ export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorPr
         if (!res.ok) throw new Error('Error al subir imagen')
         
         const data = await res.json()
-        newImages.push(data.url)
+        newImages.push({ url: data.url, alt: null })
       }
 
       onImagesChange(newImages)
@@ -99,17 +101,17 @@ export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorPr
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {currentImages.map((url, index) => (
+        {currentImages.map((image, index) => (
           <motion.div
-            key={url}
+            key={image.url}
             layout
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             className="relative aspect-square group"
           >
             <Image
-              src={url}
-              alt={`Producto ${index + 1}`}
+              src={image.url}
+              alt={image.alt || `Producto ${index + 1}`}
               fill
               className="object-cover rounded-lg"
             />
@@ -127,44 +129,46 @@ export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorPr
 
       <AnimatePresence>
         {showGallery && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowGallery(false)
-              }
-            }}
-          >
+          <Portal>
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setShowGallery(false)
+                }
+              }}
             >
-              <div className="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10">
-                <h3 className="text-lg font-semibold">Seleccionar Imagen</h3>
-                <button 
-                  onClick={() => setShowGallery(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full"
-                >
-                  <FaTimes className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-white rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col"
+              >
+                <div className="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10">
+                  <h3 className="text-lg font-semibold">Seleccionar Imagen</h3>
+                  <button 
+                    onClick={() => setShowGallery(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full"
+                  >
+                    <FaTimes className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
 
-              <div className="flex-1 overflow-y-auto p-4">
-                <GalleryPage 
-                  onImageSelect={(url) => {
-                    onImagesChange([...currentImages, url])
-                    setShowGallery(false)
-                  }}
-                  selectionMode={true}
-                />
-              </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <GalleryPage 
+                    onImageSelect={(url) => {
+                      onImagesChange([...currentImages, { url, alt: '' }])
+                      setShowGallery(false)
+                    }}
+                    selectionMode={true}
+                  />
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </Portal>
         )}
       </AnimatePresence>
     </div>

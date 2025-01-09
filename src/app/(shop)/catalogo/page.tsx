@@ -4,6 +4,8 @@ import { Suspense } from 'react'
 import Loading from './loading'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import CatalogHeader from '@/app/components/catalog/CatalogHeader'
+import { ProductView } from '@/interfaces/Product'
 
 
 type SearchParams = {
@@ -18,17 +20,54 @@ async function getData(params: SearchParams = {}) {
   const where: Prisma.ProductoWhereInput = {
     activo: true,
     ...(params.categoria && { categoriaId: params.categoria as string }),
-    ...(params.buscar && {
-      nombre: {
-        contains: params.buscar as string,
-        mode: Prisma.QueryMode.insensitive
+    ...(params.enOferta === 'true' && { 
+      enOferta: true,
+      precioOferta: {
+        not: null,
+        gt: 0
       }
+    }),
+    ...((params.precioMin || params.precioMax) && {
+      AND: [
+        params.precioMin ? {
+          precio: { gte: new Prisma.Decimal(params.precioMin as string) }
+        } : {},
+        params.precioMax ? {
+          precio: { lte: new Prisma.Decimal(params.precioMax as string) }
+        } : {}
+      ].filter(Boolean)
     })
+  }
+
+  let orderBy: Prisma.ProductoOrderByWithRelationInput = { 
+    creadoEl: 'desc' 
+  }
+  
+  switch (params.ordenar) {
+    case 'precio_asc':
+      orderBy = { precio: 'asc' }
+      break
+    case 'precio_desc':
+      orderBy = { precio: 'desc' }
+      break
+    case 'nombre_asc':
+      orderBy = { nombre: 'asc' }
+      break
+    case 'nombre_desc':
+      orderBy = { nombre: 'desc' }
+      break
+    case 'ofertas':
+      orderBy = {
+        enOferta: 'desc',
+        precioOferta: 'asc'
+      }
+      break
   }
 
   const [productos, total] = await Promise.all([
     prisma.producto.findMany({
       where,
+      orderBy,
       skip,
       take: perPage,
       include: {
@@ -60,12 +99,13 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Sea
   const params = await Promise.resolve(searchParams)
   
   const defaultParams = {
-    pagina: params.pagina || '1',
-    porPagina: params.porPagina || '12',
-    categoria: params.categoria || undefined,
-    ordenar: params.ordenar || undefined,
-    precioMin: params.precioMin || undefined,
-    precioMax: params.precioMax || undefined,
+    pagina: params.pagina?.toString() || '1',
+    porPagina: params.porPagina?.toString() || '12',
+    categoria: params.categoria?.toString(),
+    ordenar: params.ordenar?.toString() || 'creadoEl_desc',
+    precioMin: params.precioMin?.toString(),
+    precioMax: params.precioMax?.toString(),
+    enOferta: params.enOferta?.toString()
   }
 
   const { productos, total } = await getData(defaultParams)
@@ -74,7 +114,14 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Sea
     select: {
       id: true,
       nombre: true,
-      slug: true
+      slug: true,
+      _count: {
+        select: { 
+          productos: { 
+            where: { activo: true } 
+          } 
+        }
+      }
     }
   })
 
@@ -84,49 +131,43 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Sea
     descripcion: p.descripcion,
     precio: Number(p.precio),
     precioOferta: p.precioOferta ? Number(p.precioOferta) : null,
-    categoria: {
-      id: p.categoria.id,
-      nombre: p.categoria.nombre,
-      slug: p.categoria.slug
-    },
-    imagenes: p.imagenes.map(img => ({
-      url: img.url,
-      alt: img.alt || p.nombre
-    })),
-    slug: p.slug
-  }))
+    enOferta: p.enOferta,
+    categoria: p.categoria,
+    imagenes: p.imagenes,
+    slug: p.slug,
+    existencias: p.existencias
+  } satisfies ProductView))
 
   const serializedCategories = categorias.map(c => ({
     id: c.id,
     nombre: c.nombre,
-    slug: c.slug
+    slug: c.slug,
+    productCount: c._count.productos
   }))
 
   return (
     <div className="container mx-auto px-4 py-8">
-      
       <div className="flex flex-col md:flex-row gap-8">
         <aside className="w-full md:w-64 flex-shrink-0">
           <FilterSidebar 
             categorias={serializedCategories}
-            currentFilters={{
-              pagina: String(defaultParams.pagina),
-              porPagina: String(defaultParams.porPagina),
-              categoria: defaultParams.categoria?.toString(),
-              ordenar: defaultParams.ordenar?.toString(),
-              precioMin: defaultParams.precioMin?.toString(), 
-              precioMax: defaultParams.precioMax?.toString()
-            }}
+            currentFilters={defaultParams}
           />
         </aside>
 
         <main className="flex-grow">
+          <CatalogHeader 
+            total={total} 
+            currentSort={defaultParams.ordenar}
+          />
+          
           <Suspense fallback={<Loading />}>
             <ProductGrid 
               products={serializedProducts}
               total={total}
-              currentPage={parseInt(defaultParams.pagina.toString())}
-              itemsPerPage={parseInt(defaultParams.porPagina.toString())}
+              currentPage={parseInt(defaultParams.pagina)}
+              itemsPerPage={parseInt(defaultParams.porPagina)}
+              currentSort={defaultParams.ordenar}
             />
           </Suspense>
         </main>

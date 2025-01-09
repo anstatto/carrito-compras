@@ -1,207 +1,321 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaEye, FaEyeSlash } from 'react-icons/fa'
-import { toast } from 'react-hot-toast'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import { useEffect, useState } from 'react'
+import { ProductFilters } from './_components/ProductFilters'
+import { FaEdit, FaEye, FaEyeSlash, FaPlus, FaSort, FaStar } from 'react-icons/fa'
+import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import type { Product } from '@/interfaces/Product'
+import { OptimizedImage } from '@/components/OptimizedImage'
+import { useRouter } from 'next/navigation'
+import { useProducts } from '@/hooks/useProducts'
+import { toast } from 'react-hot-toast'
 
 export default function ProductsPage() {
-  const { data: session, status } = useSession()
+  const { products, isLoading, fetchProducts, updateProduct } = useProducts()
+  const [categories, setCategories] = useState([])
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [sortField, setSortField] = useState<'nombre' | 'precio' | 'existencias'>('nombre')
   const router = useRouter()
-  const [products, setProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  
+  const toggleProductStatus = async (productId: string, currentStatus: boolean) => {
+    try {
+      const response = await updateProduct(productId, { 
+        activo: !currentStatus 
+      })
+      
+      if (!response) throw new Error('Error al actualizar estado')
+      
+      toast.success(`Producto ${currentStatus ? 'desactivado' : 'activado'} correctamente`)
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Error al actualizar el estado del producto')
+    }
+  }
+
+  const toggleOfferStatus = async (productId: string, product: Product) => {
+    try {
+      const response = await updateProduct(productId, {
+        enOferta: !product.enOferta,
+        precioOferta: !product.enOferta && product.precioOferta 
+          ? Number(product.precioOferta) 
+          : undefined
+      })
+
+      if (!response) throw new Error('Error al actualizar oferta')
+      
+      toast.success(`Oferta ${!product.enOferta ? 'activada' : 'desactivada'} correctamente`)
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Error al actualizar la oferta del producto')
+    }
+  }
+
+  const toggleDestacado = async (productId: string, product: Product) => {
+    try {
+      const response = await updateProduct(productId, {
+        destacado: !product.destacado
+      })
+
+      if (!response) throw new Error('Error al actualizar destacado')
+      
+      toast.success(`Producto ${!product.destacado ? 'destacado' : 'quitado de destacados'} correctamente`)
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Error al actualizar el estado destacado del producto')
+    }
+  }
+
+  const handleDoubleClick = (productId: string) => {
+    router.push(`/admin/products/${productId}`)
+  }
 
   useEffect(() => {
-    if (status === 'loading') return
-    if (!session || session.user.role !== 'ADMIN') {
-      router.push('/')
-      return
+    const handleFocus = () => {
+      fetchProducts()
     }
+
+    window.addEventListener('focus', handleFocus)
     fetchProducts()
-  }, [session, status, router])
+    fetch('/api/categories').then(res => res.json()).then(setCategories)
 
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch('/api/products')
-      if (!res.ok) throw new Error('Error al cargar productos')
-      const data = await res.json()
-      setProducts(data)
-    } catch (error) {
-      toast.error('Error al cargar los productos')
-      console.error(error)
-    } finally {
-      setIsLoading(false)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
     }
+  }, [fetchProducts])
+
+  // Función mejorada para ordenar productos
+  const sortProducts = (products: Product[]) => {
+    return [...products].sort((a, b) => {
+      if (sortField === 'precio') {
+        return sortOrder === 'asc' ? Number(a.precio) - Number(b.precio) : Number(b.precio) - Number(a.precio)
+      }
+      if (sortField === 'existencias') {
+        return sortOrder === 'asc' ? a.existencias - b.existencias : b.existencias - a.existencias
+      }
+      return sortOrder === 'asc' 
+        ? a.nombre.localeCompare(b.nombre)
+        : b.nombre.localeCompare(a.nombre)
+    })
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este producto?')) return
-
-    try {
-      const res = await fetch(`/api/products/${id}`, {
-        method: 'DELETE'
-      })
-      if (!res.ok) throw new Error('Error al eliminar producto')
-      
-      toast.success('Producto eliminado')
-      setProducts(products.filter(p => p.id !== id))
-    } catch (error) {
-      toast.error('Error al eliminar el producto')
-      console.error(error)
+  const handleSort = (field: typeof sortField) => {
+    if (field === sortField) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
     }
-  }
-
-  const toggleStatus = async (id: string, currentStatus: boolean) => {
-    try {
-      const res = await fetch(`/api/products/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activo: !currentStatus })
-      })
-
-      if (!res.ok) throw new Error('Error al actualizar estado')
-      await fetchProducts()
-      toast.success('Estado actualizado')
-    } catch (error) {
-      toast.error('Error al actualizar estado')
-      console.error(error)
-    }
-  }
-
-  const filteredProducts = products.filter(product =>
-    product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  if (status === 'loading' || isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full shadow-lg"
-        />
-      </div>
-    )
   }
 
   return (
-    <div className="p-8 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-6 mb-12">
-          <motion.h1 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-4xl font-bold bg-gradient-to-r from-pink-600 to-violet-600 bg-clip-text text-transparent"
-          >
-            Gestión de Productos
-          </motion.h1>
-          
-          <div className="flex items-center gap-6 w-full sm:w-auto">
-            <div className="relative flex-1 sm:flex-initial">
-              <input
-                type="text"
-                placeholder="Buscar productos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:ring-4 focus:ring-pink-500/20 focus:border-pink-500 transition-all shadow-sm"
-              />
-              <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-            </div>
-            
-            <Link
-              href="/admin/products/new"
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-105"
-            >
-              <FaPlus className="w-5 h-5" />
-              <span className="font-medium">Nuevo Producto</span>
-            </Link>
-          </div>
-        </div>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Productos</h1>
+        <Link
+          href="/admin/products/new"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-violet-500 
+                   text-white rounded-lg hover:shadow-lg transition-all duration-200"
+        >
+          <FaPlus /> Nuevo Producto
+        </Link>
+      </div>
 
-        <div className="grid gap-8">
-          {filteredProducts.map((product) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all border border-gray-100 group"
-            >
-              <div className="flex items-center gap-6">
-                <div className="relative h-24 w-24 rounded-xl overflow-hidden shadow-md group-hover:scale-105 transition-transform">
-                  <Image
-                    src={product.imagenes?.[0]?.url || '/placeholder.jpg'}
+      <ProductFilters 
+        categories={categories}
+        onFilter={fetchProducts}
+      />
+
+      {/* Controles de ordenamiento */}
+      <div className="flex gap-4 mb-6 bg-white p-4 rounded-lg shadow">
+        <button
+          onClick={() => handleSort('nombre')}
+          className={`flex items-center gap-2 px-3 py-2 rounded transition-colors
+                     ${sortField === 'nombre' ? 'bg-pink-100 text-pink-600' : 'hover:bg-gray-100'}`}
+        >
+          Nombre <FaSort className={sortField === 'nombre' ? 'text-pink-600' : 'text-gray-400'} />
+        </button>
+        <button
+          onClick={() => handleSort('precio')}
+          className={`flex items-center gap-2 px-3 py-2 rounded transition-colors
+                     ${sortField === 'precio' ? 'bg-pink-100 text-pink-600' : 'hover:bg-gray-100'}`}
+        >
+          Precio <FaSort className={sortField === 'precio' ? 'text-pink-600' : 'text-gray-400'} />
+        </button>
+        <button
+          onClick={() => handleSort('existencias')}
+          className={`flex items-center gap-2 px-3 py-2 rounded transition-colors
+                     ${sortField === 'existencias' ? 'bg-pink-100 text-pink-600' : 'hover:bg-gray-100'}`}
+        >
+          Stock <FaSort className={sortField === 'existencias' ? 'text-pink-600' : 'text-gray-400'} />
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
+        </div>
+      ) : (
+        <AnimatePresence mode="popLayout">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {sortProducts(products).map(product => (
+              <motion.div
+                key={product.id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                whileHover={{ y: -5 }}
+                onDoubleClick={() => handleDoubleClick(product.id)}
+                className={`bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-200 
+                           hover:shadow-xl cursor-pointer relative
+                           ${!product.activo && 'opacity-75'}`}
+              >
+                {/* Badges de estado */}
+                <div className="absolute top-2 right-2 flex flex-col gap-2 z-10">
+                  {product.enOferta && (
+                    <div className="bg-gradient-to-r from-pink-500 to-rose-500 
+                                  text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                      {((1 - Number(product.precioOferta) / Number(product.precio)) * 100).toFixed(0)}% OFF
+                    </div>
+                  )}
+                  {product.destacado && (
+                    <div className="bg-gradient-to-r from-amber-400 to-orange-500 
+                                  text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                      Destacado
+                    </div>
+                  )}
+                  {!product.activo && (
+                    <div className="bg-gray-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                      Inactivo
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative aspect-video">
+                  <OptimizedImage
+                    src={product.imagenes[0]?.url || '/placeholder-product.jpg'}
                     alt={product.nombre}
                     fill
-                    sizes="(max-width: 768px) 96px, 96px"
                     className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                 </div>
-                
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">{product.nombre}</h3>
-                  <div className="flex flex-wrap items-center gap-4 text-sm">
-                    <span className="px-4 py-1.5 bg-pink-50 text-pink-600 rounded-full font-medium">
-                      ${product.precio}
-                    </span>
-                    <span className="px-4 py-1.5 bg-violet-50 text-violet-600 rounded-full font-medium">
-                      Stock: {product.existencias}
-                    </span>
-                    <span className="px-4 py-1.5 bg-gray-100 text-gray-600 rounded-full font-medium">
+
+                <div className="p-5">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="text-lg font-semibold text-gray-800 line-clamp-2">
+                      {product.nombre}
+                    </h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleProductStatus(product.id, product.activo)
+                        }}
+                        className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
+                        title={product.activo ? 'Desactivar' : 'Activar'}
+                      >
+                        {product.activo ? <FaEye /> : <FaEyeSlash />}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleOfferStatus(product.id, product)
+                        }}
+                        className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
+                        title={product.enOferta ? 'Quitar oferta' : 'Poner en oferta'}
+                      >
+                        {product.enOferta ? '💰' : '🏷️'}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleDestacado(product.id, product)
+                        }}
+                        className={`p-2 transition-colors ${
+                          product.destacado 
+                            ? 'text-yellow-500 hover:text-yellow-600' 
+                            : 'text-gray-500 hover:text-yellow-500'
+                        }`}
+                        title={product.destacado ? 'Quitar de destacados' : 'Marcar como destacado'}
+                      >
+                        <FaStar />
+                      </button>
+                      <Link
+                        href={`/admin/products/${product.id}/edit`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
+                      >
+                        <FaEdit />
+                      </Link>
+                    </div>
+                  </div>
+
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    {product.descripcion}
+                  </p>
+
+                  <div className="flex justify-between items-center">
+                    <div className="space-y-1">
+                      {product.enOferta && product.precioOferta ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <p className="text-lg font-bold text-pink-500">
+                              ${Number(product.precioOferta).toFixed(2)}
+                            </p>
+                            <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
+                              Oferta
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 line-through">
+                            ${Number(product.precio).toFixed(2)}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-lg font-bold text-gray-900">
+                          ${Number(product.precio).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-medium ${
+                        product.existencias <= product.stockMinimo 
+                          ? 'text-red-500' 
+                          : product.existencias <= product.stockMinimo * 2
+                            ? 'text-amber-500'
+                            : 'text-green-500'
+                      }`}>
+                        Stock: {product.existencias}
+                      </p>
+                      {product.existencias <= product.stockMinimo && (
+                        <p className="text-xs text-red-500">
+                          ¡Stock bajo!
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-xs font-medium text-gray-500">
                       {product.categoria.nombre}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      SKU: {product.sku}
                     </span>
                   </div>
                 </div>
+              </motion.div>
+            ))}
+          </div>
+        </AnimatePresence>
+      )}
 
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => toggleStatus(product.id, product.activo)}
-                    className={`p-3 rounded-xl transition-all ${
-                      product.activo 
-                        ? 'bg-green-100 text-green-600 hover:bg-green-200 hover:scale-105' 
-                        : 'bg-red-100 text-red-600 hover:bg-red-200 hover:scale-105'
-                    }`}
-                  >
-                    {product.activo ? <FaEye className="w-5 h-5" /> : <FaEyeSlash className="w-5 h-5" />}
-                  </button>
-
-                  <Link
-                    href={`/admin/products/${product.id}/edit`}
-                    className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl hover:scale-105 transition-all"
-                  >
-                    <FaEdit className="w-5 h-5" />
-                  </Link>
-
-                  <button
-                    onClick={() => handleDelete(product.id)}
-                    className="p-3 text-red-600 hover:bg-red-50 rounded-xl hover:scale-105 transition-all"
-                  >
-                    <FaTrash className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-
-          {filteredProducts.length === 0 && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-16 bg-white rounded-2xl shadow-md"
-            >
-              <p className="text-xl text-gray-500 font-medium">
-                No se encontraron productos
-              </p>
-            </motion.div>
-          )}
+      {products.length === 0 && !isLoading && (
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-lg">No se encontraron productos</p>
         </div>
-      </div>
+      )}
     </div>
   )
 }
