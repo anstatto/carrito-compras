@@ -4,18 +4,34 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from '@/lib/auth'
 import bcrypt from "bcryptjs"
 
+// Definir interfaz para el caché
+interface UserCache {
+  id: string
+  nombre: string
+  apellido: string
+  email: string
+  role: 'USER' | 'ADMIN'
+  activo: boolean
+  creadoEl: string
+}
+
+// Implementar caché
+export let usersCache: UserCache[] | null = null
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user || session.user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const users = await prisma.user.findMany({
+    // Agregar timeout para evitar carga infinita
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 10000)
+    )
+
+    const usersPromise = prisma.user.findMany({
       select: {
         id: true,
         nombre: true,
@@ -25,18 +41,34 @@ export async function GET() {
         activo: true,
         creadoEl: true,
       },
-      orderBy: {
-        creadoEl: 'desc'
-      }
+      orderBy: { creadoEl: 'desc' }
     })
+
+    const users = await Promise.race([usersPromise, timeoutPromise])
+      .then(result => result as Awaited<typeof usersPromise>)
+      .catch(error => {
+        if (error.message === 'Timeout') {
+          throw new Error('La solicitud tardó demasiado tiempo')
+        }
+        throw error
+      })
+    // Actualizar caché
+    usersCache = users.map(user => ({
+      id: user.id,
+      nombre: user.nombre,
+      apellido: user.apellido,
+      email: user.email,
+      role: user.role,
+      activo: user.activo,
+      creadoEl: user.creadoEl.toISOString()
+    }))
     
     return NextResponse.json(users)
   } catch (error) {
-    console.error('Error al obtener usuarios:', error)
-    return NextResponse.json(
-      { error: 'Error al obtener los usuarios' },
-      { status: 500 }
-    )
+    console.error('Error:', error)
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Error al obtener usuarios'
+    }, { status: 500 })
   }
 }
 

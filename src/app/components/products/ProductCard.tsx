@@ -3,11 +3,27 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import AddToCartButton from '../cart/AddToCartButton'
+import FavoriteButton from '../FavoriteButton'
 import { motion } from 'framer-motion'
-import { ProductView } from '@/interfaces/Product'
+import { MarcaProducto } from '@prisma/client'
 
 interface ProductCardProps {
-  product: ProductView
+  product: {
+    id: string
+    nombre: string
+    precio: number
+    precioOferta?: number | null
+    enOferta?: boolean
+    marca: MarcaProducto
+    destacado?: boolean
+    imagenes: { url: string; alt?: string | null }[]
+    categoria: {
+      nombre: string
+      slug: string
+    }
+    existencias: number
+    descripcion: string
+  }
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
@@ -22,8 +38,43 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <div className="group relative flex flex-col h-full bg-white dark:bg-gray-800 
                     rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 
-                    border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <Link href={`/productos/${product.slug}`} className="flex-1">
+                    border border-[#FFB6C1]/20 dark:border-gray-700 overflow-hidden">
+      <div className="absolute top-3 left-3 right-3 z-20 flex justify-between items-start">
+        <FavoriteButton 
+          productoId={product.id}
+          className="bg-white/80 backdrop-blur-sm shadow-lg 
+                    dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800" 
+        />
+        
+        <div className="flex flex-col gap-2">
+          {product.enOferta && (
+            <motion.div 
+              initial={{ scale: 0, rotate: -15 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 150, damping: 15 }}
+              className="bg-gradient-to-r from-[#FF69B4] to-[#FF1493] 
+                        text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg
+                        border-2 border-white dark:border-gray-800"
+            >
+              {descuento}% OFF
+            </motion.div>
+          )}
+          {product.destacado !== undefined && (
+            <motion.div
+              initial={{ scale: 0, rotate: -15 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 150, damping: 15 }}
+              className="bg-gradient-to-r from-amber-400 to-orange-500
+                        text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg
+                        border-2 border-white dark:border-gray-800"
+            >
+              ⭐ Destacado
+            </motion.div>
+          )}
+        </div>
+      </div>
+      
+      <Link href={`/productos/${product.nombre.toLowerCase().replace(/\s+/g, '-')}`} className="flex-1">
         <div className="relative aspect-square overflow-hidden">
           <Image
             src={product.imagenes[0]?.url || '/placeholder-product.jpg'}
@@ -33,18 +84,6 @@ export default function ProductCard({ product }: ProductCardProps) {
             className="object-cover transition-all duration-500 group-hover:scale-110"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
-          {product.enOferta && (
-            <motion.div 
-              initial={{ scale: 0, rotate: -15 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 150, damping: 15 }}
-              className="absolute top-3 right-3 bg-gradient-to-r from-pink-500 to-rose-500 
-                        text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg
-                        border-2 border-white dark:border-gray-800"
-            >
-              {descuento}% OFF
-            </motion.div>
-          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent 
                         opacity-0 group-hover:opacity-100 transition-opacity duration-300"/>
         </div>
@@ -52,11 +91,11 @@ export default function ProductCard({ product }: ProductCardProps) {
         <div className="p-5 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2 
-                         group-hover:text-pink-500 transition-colors duration-300">
+                         group-hover:text-[#FF69B4] transition-colors duration-300">
               {product.nombre}
             </h3>
-            <span className="px-2.5 py-0.5 text-xs font-medium bg-pink-100 dark:bg-pink-900 
-                           text-pink-600 dark:text-pink-300 rounded-full whitespace-nowrap">
+            <span className="px-2.5 py-0.5 text-xs font-medium bg-[#FFF0F5] dark:bg-[#FF69B4]/20 
+                           text-[#FF69B4] dark:text-[#FFB6C1] rounded-full whitespace-nowrap">
               {product.categoria.nombre}
             </span>
           </div>
@@ -67,7 +106,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
           <div className="flex items-center justify-between pt-2">
             <div className="flex items-baseline gap-2">
-              <span className={`text-xl font-bold ${product.enOferta ? 'text-pink-600' : 'text-gray-900 dark:text-white'}`}>
+              <span className={`text-xl font-bold ${product.enOferta ? 'text-[#FF69B4]' : 'text-gray-900 dark:text-white'}`}>
                 ${precioFinal.toFixed(2)}
               </span>
               {product.enOferta && product.precioOferta && (
@@ -77,11 +116,17 @@ export default function ProductCard({ product }: ProductCardProps) {
               )}
             </div>
             {product.existencias <= 5 && product.existencias > 0 && (
-              <span className="text-xs text-amber-600 font-medium">
+              <span className="text-xs text-[#FF1493] font-medium">
                 ¡Últimas {product.existencias} unidades!
               </span>
             )}
           </div>
+
+          {product.marca && (
+            <p className="text-sm text-gray-500">
+              {product.marca.replace('_', ' ')}
+            </p>
+          )}
         </div>
       </Link>
 
@@ -91,7 +136,9 @@ export default function ProductCard({ product }: ProductCardProps) {
             id: product.id,
             nombre: product.nombre,
             precio: precioFinal,
-            imagen: product.imagenes?.[0]?.url || '/images/placeholder.png'
+            imagen: product.imagenes?.[0]?.url || '/images/placeholder.png',
+            existencias: product.existencias,
+            marca: product.marca || ''
           }} 
         />
       </div>

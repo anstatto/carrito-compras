@@ -1,6 +1,11 @@
+import { MarcaProducto } from '@prisma/client'
+
 export interface ProductImage {
+  id?: string
   url: string
   alt: string | null
+  principal?: boolean
+  orden?: number
 }
 
 export interface ProductFormData {
@@ -18,6 +23,7 @@ export interface ProductFormData {
   destacado: boolean
   sku?: string
   slug?: string
+  marca: MarcaProducto
 }
 
 export interface Product extends ProductFormData {
@@ -39,6 +45,7 @@ export interface ProductView {
   precio: number
   precioOferta: number | null
   enOferta: boolean
+  marca: MarcaProducto
   imagenes: {
     url: string
     alt: string | null

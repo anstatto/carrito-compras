@@ -9,12 +9,15 @@ export const useProducts = () => {
   const fetchProducts = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/products')
-      if (!response.ok) throw new Error('Error al cargar productos')
+      const response = await fetch('/api/products?admin=true')
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al cargar productos')
+      }
       const data = await response.json()
       setProducts(data)
     } catch (error) {
-      console.error(error)
+      console.error('Error:', error)
       toast.error('Error al cargar los productos')
     } finally {
       setIsLoading(false)
@@ -31,23 +34,25 @@ export const useProducts = () => {
         body: JSON.stringify(data)
       })
 
+      const result = await response.json()
+
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Error al actualizar producto')
+        throw new Error(result.error || 'Error al actualizar producto')
       }
 
-      const updatedProduct = await response.json()
-      
-      // Actualizamos el estado local en lugar de hacer un nuevo fetch
+      if (!result.success) {
+        throw new Error(result.error || 'Error al actualizar producto')
+      }
+
       setProducts(prevProducts => 
         prevProducts.map(product => 
-          product.id === id ? updatedProduct : product
+          product.id === id ? result.data : product
         )
       )
 
-      return updatedProduct
+      return result.data
     } catch (error) {
-      console.error(error)
+      console.error('Error:', error)
       throw error
     }
   }
@@ -56,6 +61,7 @@ export const useProducts = () => {
     products,
     isLoading,
     fetchProducts,
-    updateProduct
+    updateProduct,
+    setProducts
   }
 } 

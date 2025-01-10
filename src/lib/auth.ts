@@ -53,7 +53,8 @@ export const authOptions: NextAuthOptions = {
             nombre: user.nombre,
             apellido: user.apellido,
             activo: user.activo,
-            isAdmin: user.role === 'ADMIN'
+            isAdmin: user.role === 'ADMIN',
+            stripeCustomerId: user.stripeCustomerId
           }
         } catch (error) {
           console.error('Error en authorize:', error)
@@ -71,6 +72,7 @@ export const authOptions: NextAuthOptions = {
         token.apellido = user.apellido
         token.activo = user.activo
         token.isAdmin = user.role === 'ADMIN'
+        token.stripeCustomerId = user.stripeCustomerId
       }
       return token
     },
@@ -82,6 +84,7 @@ export const authOptions: NextAuthOptions = {
         session.user.apellido = token.apellido
         session.user.activo = token.activo
         session.user.isAdmin = token.role === 'ADMIN'
+        session.user.stripeCustomerId = token.stripeCustomerId as string | null | undefined
       }
       return session
     }

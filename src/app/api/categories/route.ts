@@ -2,6 +2,20 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import slugify from 'slugify'
 
+interface CategoryCache {
+  id: string
+  nombre: string
+  descripcion: string | null
+  imagen: string | null
+  slug: string
+  activa: boolean
+}
+
+// Implementar caché
+let categoriesCache: CategoryCache[] | null = null
+let lastFetch = 0
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -32,21 +46,31 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const categorias = await prisma.categoria.findMany({
-      include: {
-        productos: true
+    // Verificar caché
+    if (categoriesCache && Date.now() - lastFetch < CACHE_DURATION) {
+      return NextResponse.json(categoriesCache)
+    }
+
+    const categories = await prisma.categoria.findMany({
+      where: { activa: true },
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        imagen: true,
+        slug: true,
+        activa: true
       },
-      orderBy: {
-        nombre: 'asc'
-      }
+      orderBy: { nombre: 'asc' }
     })
-    
-    return NextResponse.json(categorias)
+
+    // Actualizar caché
+    categoriesCache = categories
+    lastFetch = Date.now()
+
+    return NextResponse.json(categories)
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json(
-      { error: 'Error al obtener las categorías' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error al obtener categorías' }, { status: 500 })
   }
 } 

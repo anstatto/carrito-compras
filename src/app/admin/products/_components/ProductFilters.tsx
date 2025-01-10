@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { motion } from 'framer-motion'
+import debounce from 'lodash/debounce'
 
 interface FilterProps {
   categories: { id: string; nombre: string }[]
@@ -18,14 +19,59 @@ interface FilterValues {
   busqueda?: string
 }
 
-export function ProductFilters({ categories, onFilter }: FilterProps) {
+// Memoizar los inputs individuales
+const FilterInput = memo(({ 
+  label, 
+  type, 
+  value, 
+  onChange,
+  ...props 
+}: {
+  label: string
+  type: string
+  value: string | boolean
+  onChange: (value: string | boolean) => void
+  // Extender de los tipos de input HTML
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'>) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    {type === 'checkbox' ? (
+      <input
+        type="checkbox"
+        checked={value as boolean}
+        onChange={(e) => onChange(e.target.checked)}
+        className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+        {...props}
+      />
+    ) : (
+      <input
+        type={type}
+        value={value as string}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border-gray-300 focus:ring-pink-500 focus:border-pink-500"
+        {...props}
+      />
+    )}
+  </div>
+))
+FilterInput.displayName = 'FilterInput'
+
+// Mover el debounce fuera del componente
+const debouncedFilterFn = debounce((fn: (filters: FilterValues) => void, filters: FilterValues) => {
+  fn(filters)
+}, 300)
+
+export const ProductFilters = memo(function ProductFilters({ 
+  categories, 
+  onFilter 
+}: FilterProps) {
   const [filters, setFilters] = useState<FilterValues>({})
 
-  const handleChange = (key: keyof FilterValues, value: string | boolean) => {
+  const handleChange = useCallback((key: keyof FilterValues, value: string | boolean) => {
     const newFilters = { ...filters, [key]: value }
     setFilters(newFilters)
-    onFilter(newFilters)
-  }
+    debouncedFilterFn(onFilter, newFilters)
+  }, [filters, onFilter])
 
   return (
     <motion.div 
@@ -106,4 +152,4 @@ export function ProductFilters({ categories, onFilter }: FilterProps) {
       </div>
     </motion.div>
   )
-} 
+}) 

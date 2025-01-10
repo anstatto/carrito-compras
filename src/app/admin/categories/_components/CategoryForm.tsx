@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useCallback, memo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ImageSelector } from './ImageSelector'
@@ -14,11 +14,42 @@ interface CategoryFormProps {
   isEditing: boolean
 }
 
-export function CategoryForm({ formData, setFormData, isEditing }: CategoryFormProps) {
+// Memoizar el botón de submit para evitar re-renders innecesarios
+const SubmitButton = memo(({ isSubmitting, isEditing }: { 
+  isSubmitting: boolean, 
+  isEditing: boolean 
+}) => (
+  <motion.button
+    type="submit"
+    whileHover={{ scale: 1.02 }}
+    whileTap={{ scale: 0.98 }}
+    disabled={isSubmitting}
+    className="px-8 py-2.5 text-white bg-gradient-to-r from-pink-500 to-violet-500 
+               rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+  >
+    {isSubmitting ? (
+      <motion.div 
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto"
+      />
+    ) : (
+      isEditing ? 'Actualizar' : 'Crear'
+    )}
+  </motion.button>
+))
+SubmitButton.displayName = 'SubmitButton'
+
+// Optimizar el formulario principal
+export const CategoryForm = memo(function CategoryForm({ 
+  formData, 
+  setFormData, 
+  isEditing 
+}: CategoryFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
@@ -44,7 +75,7 @@ export function CategoryForm({ formData, setFormData, isEditing }: CategoryFormP
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [formData, isEditing, router])
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl mx-auto bg-white/80 backdrop-blur-lg p-8 rounded-xl shadow-xl">
@@ -135,27 +166,8 @@ export function CategoryForm({ formData, setFormData, isEditing }: CategoryFormP
         >
           Cancelar
         </Link>
-        <motion.button
-          type="submit"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          disabled={isSubmitting}
-          className="px-8 py-2.5 text-white bg-gradient-to-r from-pink-500 to-violet-500 
-                   rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg 
-                   hover:shadow-xl transition-all duration-200 focus:outline-none 
-                   focus:ring-4 focus:ring-pink-500/50 font-medium"
-        >
-          {isSubmitting ? (
-            <motion.div 
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto"
-            />
-          ) : (
-            isEditing ? 'Actualizar' : 'Crear'
-          )}
-        </motion.button>
+        <SubmitButton isSubmitting={isSubmitting} isEditing={isEditing} />
       </div>
     </form>
   )
-} 
+}) 

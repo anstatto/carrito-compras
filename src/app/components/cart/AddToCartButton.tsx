@@ -4,47 +4,117 @@ import { useCart } from '@/app/context/CartContext'
 import { useNotification } from '@/app/hooks/useNotification'
 import { FaShoppingCart, FaCheck } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { MarcaProducto } from '@prisma/client'
+import { useQueryClient } from '@tanstack/react-query'
 
-type Product = {
+interface Product {
   id: string
   nombre: string
   precio: number
   imagen: string
-  stock?: number
+  marca: MarcaProducto
+  existencias: number
+  categoria?: {
+    id: string
+    nombre: string
+  }
 }
 
+declare global {
+  interface Window {
+    __loggedProducts?: string[]
+  }
+}
 export default function AddToCartButton({ product }: { product: Product }) {
-  const { addItem, items } = useCart()
-  const { showSuccess, showError } = useNotification()
+  const { items } = useCart()
+  const { showError } = useNotification()
   const [isAdding, setIsAdding] = useState(false)
+  const queryClient = useQueryClient()
+
+  const itemInCart = useMemo(() =>
+    items.find(item => item.productoId === product.id),
+    [items, product.id]
+  )
   
-  const itemInCart = items.find(item => item.id === product.id)
-  const currentQuantity = itemInCart?.cantidad || 0
-  const isOutOfStock = product.stock && currentQuantity >= product.stock
+  const currentQuantity = useMemo(() => 
+    itemInCart?.cantidad || 0,
+    [itemInCart]
+  )
 
+  const existencias = useMemo(() => 
+    typeof product.existencias === 'number' ? product.existencias : 0,
+    [product.existencias]
+  )
+  
+  const isOutOfStock = useMemo(() => 
+    existencias <= 0,
+    [existencias]
+  )
+
+  const buttonClassName = useMemo(() => `
+    group relative flex items-center justify-center gap-2 
+    px-6 py-3 rounded-full font-medium w-full
+    transition-all duration-300 ease-in-out
+    ${isAdding ? 'bg-green-500' : isOutOfStock ? 'bg-gray-400' : 'bg-pink-500 hover:bg-pink-600'}
+    text-white shadow-lg hover:shadow-pink-500/25
+    disabled:cursor-not-allowed disabled:opacity-60
+    transform active:scale-95
+  `, [isAdding, isOutOfStock])
+
+  if (process.env.NODE_ENV === 'development' && !window.__loggedProducts?.includes(product.id)) {
+    // console.log('Product data:', {
+    //   id: product.id,
+    //   existencias: product.existencias,
+    //   tipo: typeof product.existencias,
+    //   producto_completo: product
+    // })
+    window.__loggedProducts = [...(window.__loggedProducts || []), product.id]
+  }
+  
   const handleAddToCart = async () => {
-    if (isOutOfStock) {
-      showError('No hay más stock disponible')
-      return
-    }
+    if (isAdding) return
 
-    setIsAdding(true)
-    
     try {
-      addItem({
-        id: product.id,
-        nombre: product.nombre,
-        precio: product.precio,
-        cantidad: 1,
-        imagen: product.imagen || '/images/placeholder.png',
+      setIsAdding(true)
+      
+      if (existencias <= 0) {
+        throw new Error('Producto sin stock disponible')
+      }
+
+      if (currentQuantity >= existencias) {
+        throw new Error(`Solo quedan ${existencias} unidades disponibles`)
+      }
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+      const response = await fetch('/api/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productoId: product.id,
+          cantidad: 1
+        }),
+        signal: controller.signal
       })
 
-      showSuccess('¡Producto agregado al carrito!')
-    } catch {
-      showError('Error al agregar al carrito')
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data?.error || 'Error al agregar al carrito')
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['cart'] })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        showError('La operación tardó demasiado tiempo')
+      } else {
+        showError(error instanceof Error ? error.message : 'Error al agregar al carrito')
+      }
     } finally {
-      setTimeout(() => setIsAdding(false), 800)
+      setIsAdding(false)
     }
   }
 
@@ -54,14 +124,8 @@ export default function AddToCartButton({ product }: { product: Product }) {
       disabled={Boolean(isAdding || isOutOfStock)}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.95 }}
-      className={`
-        group relative flex items-center justify-center gap-2 
-        px-6 py-3 rounded-full font-medium w-full
-        transition-all duration-300 ease-in-out
-        ${isAdding ? 'bg-green-500' : isOutOfStock ? 'bg-gray-400' : 'bg-pink-500 hover:bg-pink-600'}
-        text-white shadow-lg hover:shadow-pink-500/25
-        disabled:cursor-not-allowed disabled:opacity-60
-      `}
+      className={buttonClassName}
+      aria-label={isOutOfStock ? 'Sin stock' : 'Agregar al carrito'}
     >
       <AnimatePresence mode="wait">
         {isAdding ? (

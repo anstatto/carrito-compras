@@ -10,6 +10,7 @@ declare module "next-auth" {
     apellido: string
     activo: boolean
     isAdmin?: boolean
+    stripeCustomerId?: string | null
   }
 
   interface Session {
@@ -21,6 +22,7 @@ declare module "next-auth" {
       apellido: string
       activo: boolean
       isAdmin?: boolean
+      stripeCustomerId?: string | null
     }
   }
 }
@@ -33,5 +35,6 @@ declare module "next-auth/jwt" {
     apellido: string
     activo: boolean
     isAdmin?: boolean
+    stripeCustomerId?: string | null
   }
 } 

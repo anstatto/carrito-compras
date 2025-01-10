@@ -6,9 +6,37 @@ import Link from 'next/link'
 import { FaTrash, FaTimes, FaShoppingCart, FaMinus, FaPlus } from 'react-icons/fa'
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useNotification } from '@/app/hooks/useNotification'
+
+interface CartItemType {
+  id: string
+  productoId: string
+  cantidad: number
+  nombre: string
+  precio: number
+  imagen: string
+  marca: string
+  producto: {
+    nombre: string
+    precio: number
+    existencias: number
+    imagenes: {
+      url: string
+      alt: string | null
+    }[]
+  }
+}
 
 export default function CartDropdown() {
-  const { items, removeItem, updateQuantity, total } = useCart()
+  const cart = useCart()
+  const { items, removeItem, updateQuantity, total, loading } = cart as unknown as {
+    items: CartItemType[]
+    removeItem: (id: string) => Promise<void>
+    updateQuantity: (id: string, quantity: number) => void
+    total: number
+    loading: boolean
+  }
+  const { showError, showSuccess } = useNotification()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -25,16 +53,44 @@ export default function CartDropdown() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-  const handleQuantityChange = (id: string, newQuantity: number) => {
-    if (newQuantity >= 1 && newQuantity <= 10) {
-      updateQuantity(id, newQuantity)
+  const dropdownAnimation = {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: 10 }
+  }
+
+  const handleQuantityChange = async (id: string, newQuantity: number) => {
+    const item = items.find(i => i.id === id)
+    if (!item) return
+
+    const maxStock = item.producto?.existencias
+    if (typeof maxStock !== 'number') {
+      showError('Error al verificar el stock')
+      return
+    }
+
+    if (newQuantity > maxStock) {
+      showError(`Solo hay ${maxStock} unidades disponibles`)
+      return
+    }
+
+    if (newQuantity >= 1) {
+      try {
+        await updateQuantity(id, newQuantity)
+        showSuccess('Cantidad actualizada')
+      } catch (error) {
+        console.error(error)
+        showError('Error al actualizar cantidad')
+      }
     }
   }
 
-  const handleRemoveItem = (id: string) => {
-    const item = items.find(item => item.id === id)
-    if (item) {
-      removeItem(id)
+  const handleRemoveItem = async (id: string) => {
+    try {
+      await removeItem(id)
+    } catch (error) {
+      console.error(error)
+      showError('Error al eliminar el producto')
     }
   }
 
@@ -43,6 +99,14 @@ export default function CartDropdown() {
     animate: { opacity: 1, x: 0 },
     exit: { opacity: 0, x: 20 },
     transition: { duration: 0.2 }
+  }
+
+  if (loading) {
+    return <div className="relative p-2">
+      <div className="animate-spin">
+        <FaShoppingCart className="w-6 h-6" />
+      </div>
+    </div>
   }
 
   return (
@@ -72,9 +136,7 @@ export default function CartDropdown() {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
+            {...dropdownAnimation}
             className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl z-50 overflow-hidden"
           >
             <div className="p-4 border-b">
@@ -102,7 +164,7 @@ export default function CartDropdown() {
               ) : (
                 <div className="p-4 space-y-4">
                   <AnimatePresence mode="popLayout">
-                    {items.map((item) => (
+                    {items.map((item: CartItemType) => (
                       <motion.div
                         key={item.id}
                         {...cartItemAnimation}
@@ -119,6 +181,9 @@ export default function CartDropdown() {
                         </div>
                         <div className="flex-1">
                           <h4 className="font-medium">{item.nombre}</h4>
+                          <p className="text-sm text-gray-500">
+                            {item.marca.replace('_', ' ')}
+                          </p>
                           <p className="text-pink-500 font-semibold">
                             ${(item.precio * item.cantidad).toFixed(2)}
                           </p>

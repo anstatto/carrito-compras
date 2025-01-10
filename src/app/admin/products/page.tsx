@@ -6,18 +6,58 @@ import { FaEdit, FaEye, FaEyeSlash, FaPlus, FaSort, FaStar } from 'react-icons/f
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import type { Product } from '@/interfaces/Product'
-import { OptimizedImage } from '@/components/OptimizedImage'
-import { useRouter } from 'next/navigation'
+import OptimizedImage from '@/components/OptimizedImage'
 import { useProducts } from '@/hooks/useProducts'
 import { toast } from 'react-hot-toast'
+import Pagination from '@/components/ui/Pagination'
+import { useRouter } from 'next/navigation'
 
 export default function ProductsPage() {
-  const { products, isLoading, fetchProducts, updateProduct } = useProducts()
+  const { products, isLoading, fetchProducts, updateProduct, setProducts } = useProducts()
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(12)
   const [categories, setCategories] = useState([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [sortField, setSortField] = useState<'nombre' | 'precio' | 'existencias'>('nombre')
+
   const router = useRouter()
+
+  const sortProducts = (products: Product[]) => {
+    const numericSort = (a: number, b: number) => sortOrder === 'asc' ? a - b : b - a
+    const stringSort = (a: string, b: string) => {
+      return sortOrder === 'asc' 
+        ? a.localeCompare(b, 'es', { sensitivity: 'base' })
+        : b.localeCompare(a, 'es', { sensitivity: 'base' })
+    }
+
+    return [...products].sort((a, b) => {
+      switch (sortField) {
+        case 'precio':
+          return numericSort(Number(a.precio), Number(b.precio))
+        case 'existencias':
+          return numericSort(a.existencias, b.existencias)
+        default:
+          return stringSort(a.nombre, b.nombre)
+      }
+    })
+  }
   
+  // Calcular índices para paginación
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+
+  // Aplicar ordenamiento antes de la paginación
+  const sortedProducts = sortProducts(products)
+  const currentProducts = sortedProducts.slice(indexOfFirstItem, indexOfLastItem)
+
+  const totalPages = Math.ceil(products.length / itemsPerPage)
+
+  // Función para cambiar de página
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const toggleProductStatus = async (productId: string, currentStatus: boolean) => {
     try {
       const response = await updateProduct(productId, { 
@@ -25,6 +65,15 @@ export default function ProductsPage() {
       })
       
       if (!response) throw new Error('Error al actualizar estado')
+      
+      // Forzar actualización inmediata
+      setProducts((prevProducts: Product[]) => 
+        prevProducts.map(product => 
+          product.id === productId 
+            ? { ...product, activo: !currentStatus }
+            : product
+        )
+      )
       
       toast.success(`Producto ${currentStatus ? 'desactivado' : 'activado'} correctamente`)
     } catch (error) {
@@ -67,37 +116,41 @@ export default function ProductsPage() {
   }
 
   const handleDoubleClick = (productId: string) => {
-    router.push(`/admin/products/${productId}`)
+    router.push(`/admin/products/${productId}/edit`)
   }
 
   useEffect(() => {
     const handleFocus = () => {
-      fetchProducts()
+      const lastUpdate = localStorage.getItem('lastProductsUpdate')
+      const now = Date.now()
+      if (!lastUpdate || now - parseInt(lastUpdate) > 5 * 60 * 1000) {
+        fetchProducts()
+        localStorage.setItem('lastProductsUpdate', now.toString())
+      }
     }
 
     window.addEventListener('focus', handleFocus)
+    
     fetchProducts()
-    fetch('/api/categories').then(res => res.json()).then(setCategories)
+    
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('/api/categories')
+        if (!response.ok) throw new Error('Error al cargar categorías')
+        const data = await response.json()
+        setCategories(data)
+      } catch (error) {
+        console.error('Error:', error)
+        toast.error('Error al cargar las categorías')
+      }
+    }
+    
+    loadCategories()
 
     return () => {
       window.removeEventListener('focus', handleFocus)
     }
   }, [fetchProducts])
-
-  // Función mejorada para ordenar productos
-  const sortProducts = (products: Product[]) => {
-    return [...products].sort((a, b) => {
-      if (sortField === 'precio') {
-        return sortOrder === 'asc' ? Number(a.precio) - Number(b.precio) : Number(b.precio) - Number(a.precio)
-      }
-      if (sortField === 'existencias') {
-        return sortOrder === 'asc' ? a.existencias - b.existencias : b.existencias - a.existencias
-      }
-      return sortOrder === 'asc' 
-        ? a.nombre.localeCompare(b.nombre)
-        : b.nombre.localeCompare(a.nombre)
-    })
-  }
 
   const handleSort = (field: typeof sortField) => {
     if (field === sortField) {
@@ -156,165 +209,179 @@ export default function ProductsPage() {
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
         </div>
       ) : (
-        <AnimatePresence mode="popLayout">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortProducts(products).map(product => (
-              <motion.div
-                key={product.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                whileHover={{ y: -5 }}
-                onDoubleClick={() => handleDoubleClick(product.id)}
-                className={`bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-200 
-                           hover:shadow-xl cursor-pointer relative
-                           ${!product.activo && 'opacity-75'}`}
-              >
-                {/* Badges de estado */}
-                <div className="absolute top-2 right-2 flex flex-col gap-2 z-10">
-                  {product.enOferta && (
-                    <div className="bg-gradient-to-r from-pink-500 to-rose-500 
-                                  text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
-                      {((1 - Number(product.precioOferta) / Number(product.precio)) * 100).toFixed(0)}% OFF
-                    </div>
-                  )}
-                  {product.destacado && (
-                    <div className="bg-gradient-to-r from-amber-400 to-orange-500 
-                                  text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
-                      Destacado
-                    </div>
-                  )}
-                  {!product.activo && (
-                    <div className="bg-gray-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
-                      Inactivo
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative aspect-video">
-                  <OptimizedImage
-                    src={product.imagenes[0]?.url || '/placeholder-product.jpg'}
-                    alt={product.nombre}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  />
-                </div>
-
-                <div className="p-5">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="text-lg font-semibold text-gray-800 line-clamp-2">
-                      {product.nombre}
-                    </h3>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleProductStatus(product.id, product.activo)
-                        }}
-                        className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
-                        title={product.activo ? 'Desactivar' : 'Activar'}
-                      >
-                        {product.activo ? <FaEye /> : <FaEyeSlash />}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleOfferStatus(product.id, product)
-                        }}
-                        className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
-                        title={product.enOferta ? 'Quitar oferta' : 'Poner en oferta'}
-                      >
-                        {product.enOferta ? '💰' : '🏷️'}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleDestacado(product.id, product)
-                        }}
-                        className={`p-2 transition-colors ${
-                          product.destacado 
-                            ? 'text-yellow-500 hover:text-yellow-600' 
-                            : 'text-gray-500 hover:text-yellow-500'
-                        }`}
-                        title={product.destacado ? 'Quitar de destacados' : 'Marcar como destacado'}
-                      >
-                        <FaStar />
-                      </button>
-                      <Link
-                        href={`/admin/products/${product.id}/edit`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
-                      >
-                        <FaEdit />
-                      </Link>
-                    </div>
+        <>
+          <AnimatePresence mode="popLayout">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {currentProducts.map(product => (
+                <motion.div
+                  key={product.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  whileHover={{ y: -5 }}
+                  onDoubleClick={() => handleDoubleClick(product.id)}
+                  className={`bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-200 
+                             hover:shadow-xl cursor-pointer relative
+                             ${!product.activo && 'opacity-75'}`}
+                >
+                  {/* Badges de estado */}
+                  <div className="absolute top-2 right-2 flex flex-col gap-2 z-10">
+                    {product.enOferta && (
+                      <div className="bg-gradient-to-r from-pink-500 to-rose-500 
+                                    text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                        {((1 - Number(product.precioOferta) / Number(product.precio)) * 100).toFixed(0)}% OFF
+                      </div>
+                    )}
+                    {product.destacado && (
+                      <div className="bg-gradient-to-r from-amber-400 to-orange-500 
+                                    text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                        Destacado
+                      </div>
+                    )}
+                    {!product.activo && (
+                      <div className="bg-gray-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                        Inactivo
+                      </div>
+                    )}
                   </div>
 
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {product.descripcion}
-                  </p>
+                  <div className="relative aspect-video">
+                    <OptimizedImage
+                      src={product.imagenes[0]?.url || '/placeholder-product.jpg'}
+                      alt={product.nombre}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      priority={true}
+                    />
+                  </div>
 
-                  <div className="flex justify-between items-center">
-                    <div className="space-y-1">
-                      {product.enOferta && product.precioOferta ? (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <p className="text-lg font-bold text-pink-500">
-                              ${Number(product.precioOferta).toFixed(2)}
+                  <div className="p-5">
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="text-lg font-semibold text-gray-800 line-clamp-2">
+                        {product.nombre}
+                      </h3>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleProductStatus(product.id, product.activo)
+                          }}
+                          className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
+                          title={product.activo ? 'Desactivar' : 'Activar'}
+                        >
+                          {product.activo ? <FaEye /> : <FaEyeSlash />}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleOfferStatus(product.id, product)
+                          }}
+                          className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
+                          title={product.enOferta ? 'Quitar oferta' : 'Poner en oferta'}
+                        >
+                          {product.enOferta ? '💰' : '🏷️'}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleDestacado(product.id, product)
+                          }}
+                          className={`p-2 transition-colors ${
+                            product.destacado 
+                              ? 'text-yellow-500 hover:text-yellow-600' 
+                              : 'text-gray-500 hover:text-yellow-500'
+                          }`}
+                          title={product.destacado ? 'Quitar de destacados' : 'Marcar como destacado'}
+                        >
+                          <FaStar />
+                        </button>
+                        <Link
+                          href={`/admin/products/${product.id}/edit`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
+                        >
+                          <FaEdit />
+                        </Link>
+                      </div>
+                    </div>
+
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      {product.descripcion}
+                    </p>
+
+                    <div className="flex justify-between items-center">
+                      <div className="space-y-1">
+                        {product.enOferta && product.precioOferta ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <p className="text-lg font-bold text-pink-500">
+                                ${Number(product.precioOferta).toFixed(2)}
+                              </p>
+                              <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
+                                Oferta
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-500 line-through">
+                              ${Number(product.precio).toFixed(2)}
                             </p>
-                            <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
-                              Oferta
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-500 line-through">
+                          </>
+                        ) : (
+                          <p className="text-lg font-bold text-gray-900">
                             ${Number(product.precio).toFixed(2)}
                           </p>
-                        </>
-                      ) : (
-                        <p className="text-lg font-bold text-gray-900">
-                          ${Number(product.precio).toFixed(2)}
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-medium ${
+                          product.existencias <= product.stockMinimo 
+                            ? 'text-red-500' 
+                            : product.existencias <= product.stockMinimo * 2
+                              ? 'text-amber-500'
+                              : 'text-green-500'
+                        }`}>
+                          Stock: {product.existencias}
                         </p>
-                      )}
+                        {product.existencias <= product.stockMinimo && (
+                          <p className="text-xs text-red-500">
+                            ¡Stock bajo!
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-medium ${
-                        product.existencias <= product.stockMinimo 
-                          ? 'text-red-500' 
-                          : product.existencias <= product.stockMinimo * 2
-                            ? 'text-amber-500'
-                            : 'text-green-500'
-                      }`}>
-                        Stock: {product.existencias}
-                      </p>
-                      {product.existencias <= product.stockMinimo && (
-                        <p className="text-xs text-red-500">
-                          ¡Stock bajo!
-                        </p>
-                      )}
+
+                    <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+                      <span className="text-xs font-medium text-gray-500">
+                        {product.categoria.nombre}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        SKU: {product.sku}
+                      </span>
                     </div>
                   </div>
+                </motion.div>
+              ))}
+            </div>
+          </AnimatePresence>
 
-                  <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
-                    <span className="text-xs font-medium text-gray-500">
-                      {product.categoria.nombre}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      SKU: {product.sku}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </AnimatePresence>
-      )}
+          {/* Paginación */}
+          {products.length > 0 && (
+            <div className="mt-8">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
 
-      {products.length === 0 && !isLoading && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No se encontraron productos</p>
-        </div>
+          {products.length === 0 && !isLoading && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">No se encontraron productos</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

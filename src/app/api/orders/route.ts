@@ -2,6 +2,24 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from '@/lib/auth'
+import { EstadoPedido, TipoPago } from "@prisma/client"
+import { Decimal } from "@prisma/client/runtime/library"
+
+// Definir interfaz para el tipo de caché
+interface OrderCache {
+  id: string
+  numero: string
+  total: Decimal
+  estado: EstadoPedido
+  creadoEl: Date
+  metodoPago: { tipo: TipoPago } | null
+  cliente: { nombre: string; email: string }
+} 
+
+// Actualizar tipo del caché
+let ordersCache: OrderCache[] | null = null
+let lastFetch = 0
+const CACHE_DURATION = 1000 * 60 * 5 // 5 minutos
 
 export async function GET(request: Request) {
   try {
@@ -16,30 +34,30 @@ export async function GET(request: Request) {
       )
     }
 
+    // Verificar caché para admins
+    if (session.user.role === 'ADMIN' && ordersCache && Date.now() - lastFetch < CACHE_DURATION) {
+      return NextResponse.json(ordersCache)
+    }
+
     const pedidos = await prisma.pedido.findMany({
       where: session.user.role === 'ADMIN' 
         ? undefined 
         : { clienteId: session.user.id },
-      include: {
+      select: {
+        id: true,
+        numero: true,
+        total: true,
+        estado: true,
+        creadoEl: true,
         cliente: {
           select: {
             nombre: true,
             email: true,
           }
         },
-        items: {
-          include: {
-            producto: {
-              select: {
-                nombre: true,
-                imagenes: {
-                  take: 1,
-                  select: {
-                    url: true
-                  }
-                }
-              }
-            }
+        metodoPago: {
+          select: {
+            tipo: true
           }
         }
       },
@@ -48,6 +66,12 @@ export async function GET(request: Request) {
       },
       take: limit
     })
+
+    // Actualizar caché para admins
+    if (session.user.role === 'ADMIN') {
+      ordersCache = pedidos
+      lastFetch = Date.now()
+    }
     
     return NextResponse.json(pedidos)
   } catch (error) {
@@ -109,8 +133,8 @@ export async function POST(request: Request) {
         clienteId: session.user.id,
         total,
         estado: 'PENDIENTE',
-        metodoPago,
-        direccion,
+        metodoPagoId: metodoPago,
+        direccionId: direccion,
         notas,
         items: {
           create: itemsData

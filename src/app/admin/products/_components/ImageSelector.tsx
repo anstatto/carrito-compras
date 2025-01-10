@@ -1,24 +1,114 @@
 'use client'
 
-import { useState } from 'react'
+import dynamic from 'next/dynamic'
+import { useState, useCallback, memo } from 'react'
 import Image from 'next/image'
 import { FaPlus, FaTimes, FaImages } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-hot-toast'
-import GalleryPage from '../../gallery/page'
-import { Portal } from '@/components/Portal'
 import { ProductImage } from '@/interfaces/Product'
+import { Portal } from '@/components/Portal'
+
+// Cargar GalleryPage dinámicamente
+const GalleryPage = dynamic(() => import('../../gallery/page'), {
+  loading: () => <div>Cargando galería...</div>,
+  ssr: false
+})
+
+// Memoizar el botón de subida
+const UploadButton = memo(({ 
+  isUploading, 
+  onFileSelect 
+}: { 
+  isUploading: boolean
+  onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void
+}) => (
+  <label className="px-4 py-2 text-sm bg-gradient-to-r from-pink-50 to-violet-50 text-pink-600 rounded-lg cursor-pointer">
+    <input
+      type="file"
+      multiple
+      accept="image/*"
+      className="hidden"
+      onChange={onFileSelect}
+      disabled={isUploading}
+    />
+    {isUploading ? (
+      <motion.div 
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        className="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full"
+      />
+    ) : (
+      <>
+        <FaPlus className="w-4 h-4" />
+        <span>Subir</span>
+      </>
+    )}
+  </label>
+))
+UploadButton.displayName = 'UploadButton'
 
 interface ImageSelectorProps {
   currentImages: ProductImage[]
   onImagesChange: (images: ProductImage[]) => void
 }
 
-export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorProps) {
+const ImagePreview = memo(({ 
+  image, 
+  index, 
+  onRemove 
+}: { 
+  image: ProductImage
+  index: number
+  onRemove: (index: number) => void 
+}) => {
+  // Asegurar que la URL sea válida y completa
+  const imageUrl = image.url.includes('/productos/') 
+    ? image.url 
+    : `/productos/${image.url.split('/').pop()}`
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="relative aspect-square group"
+    >
+      <Image
+        src={imageUrl}
+        alt={image.alt || `Producto ${index + 1}`}
+        fill
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+        className="object-cover rounded-lg"
+      />
+      <RemoveButton onRemove={() => onRemove(index)} />
+    </motion.div>
+  )
+})
+
+ImagePreview.displayName = 'ImagePreview'
+
+const RemoveButton = memo(({ onRemove }: { onRemove: () => void }) => (
+  <motion.button
+    whileHover={{ scale: 1.1 }}
+    whileTap={{ scale: 0.9 }}
+    onClick={onRemove}
+    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all"
+  >
+    <FaTimes size={12} />
+  </motion.button>
+))
+
+RemoveButton.displayName = 'RemoveButton'
+
+export const ImageSelector = memo(function ImageSelector({ 
+  currentImages, 
+  onImagesChange 
+}: ImageSelectorProps) {
   const [showGallery, setShowGallery] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
@@ -30,7 +120,19 @@ export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorPr
         const formData = new FormData()
         formData.append('image', file)
         formData.append('module', 'productos')
-        formData.append('name', `${file.name}_${Date.now()}`)
+        
+        // Limpiar nombre de archivo
+        const cleanFileName = file.name
+          .toLowerCase()
+          .replace(/\s+/g, '_')
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9._-]/g, '')
+        
+        const timestamp = Date.now()
+        const finalFileName = `${cleanFileName.replace(/\.[^/.]+$/, '')}_${timestamp}`
+        
+        formData.append('name', finalFileName)
 
         const res = await fetch('/api/upload', {
           method: 'POST',
@@ -40,7 +142,14 @@ export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorPr
         if (!res.ok) throw new Error('Error al subir imagen')
         
         const data = await res.json()
-        newImages.push({ url: data.url, alt: null })
+        
+        // Asegurar que la URL sea correcta
+        const imageUrl = `/productos/${data.url.split('/').pop()}`
+
+        newImages.push({ 
+          url: imageUrl,
+          alt: cleanFileName.replace(/[_-]/g, ' ').replace(/\.[^/.]+$/, '') || 'Imagen de producto'
+        })
       }
 
       onImagesChange(newImages)
@@ -51,7 +160,7 @@ export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorPr
     } finally {
       setIsUploading(false)
     }
-  }
+  }, [currentImages, onImagesChange])
 
   const handleRemoveImage = (index: number) => {
     const newImages = currentImages.filter((_, i) => i !== index)
@@ -75,55 +184,21 @@ export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorPr
             <FaImages className="w-4 h-4" />
             <span>Galería</span>
           </motion.button>
-          <label className="px-4 py-2 text-sm bg-gradient-to-r from-pink-50 to-violet-50 text-pink-600 rounded-lg cursor-pointer">
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileSelect}
-              disabled={isUploading}
-            />
-            {isUploading ? (
-              <motion.div 
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full"
-              />
-            ) : (
-              <>
-                <FaPlus className="w-4 h-4" />
-                <span>Subir</span>
-              </>
-            )}
-          </label>
+          <UploadButton 
+            isUploading={isUploading} 
+            onFileSelect={handleFileSelect}
+          />
         </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         {currentImages.map((image, index) => (
-          <motion.div
+          <ImagePreview 
             key={image.url}
-            layout
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="relative aspect-square group"
-          >
-            <Image
-              src={image.url}
-              alt={image.alt || `Producto ${index + 1}`}
-              fill
-              className="object-cover rounded-lg"
-            />
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => handleRemoveImage(index)}
-              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all"
-            >
-              <FaTimes size={12} />
-            </motion.button>
-          </motion.div>
+            image={image}
+            index={index}
+            onRemove={handleRemoveImage}
+          />
         ))}
       </div>
 
@@ -173,4 +248,4 @@ export function ImageSelector({ currentImages, onImagesChange }: ImageSelectorPr
       </AnimatePresence>
     </div>
   )
-} 
+}) 

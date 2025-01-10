@@ -37,67 +37,63 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
-        <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900">
-            Crear cuenta
-          </h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <input
-                name="name"
-                type="text"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Nombre completo"
-              />
-            </div>
-            <div>
-              <input
-                name="email"
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Correo electrónico"
-              />
-            </div>
-            <div>
-              <input
-                name="password"
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Contraseña"
-              />
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Registrarse
-            </button>
-          </div>
-          <div className="text-center">
-            <Link 
-              href="/login" 
-              className="text-sm text-indigo-600 hover:text-indigo-500"
-            >
-              ¿Ya tienes cuenta? Inicia sesión
-            </Link>
-          </div>
-        </form>
+    <div className="w-full">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#FF69B4] to-[#FF1493]">
+          Crear cuenta
+        </h2>
+        <p className="text-gray-600 mt-2">
+          Completa tus datos para registrarte
+        </p>
       </div>
+
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <input
+            name="name"
+            type="text"
+            required
+            className="block w-full px-3 py-2 border border-[#FFB6C1] rounded-lg focus:ring-2 focus:ring-[#FF69B4] focus:border-transparent bg-white/50 backdrop-blur-sm"
+            placeholder="Nombre completo"
+          />
+          <input
+            name="email"
+            type="email"
+            required
+            className="block w-full px-3 py-2 border border-[#FFB6C1] rounded-lg focus:ring-2 focus:ring-[#FF69B4] focus:border-transparent bg-white/50 backdrop-blur-sm"
+            placeholder="Correo electrónico"
+          />
+          <input
+            name="password"
+            type="password"
+            required
+            className="block w-full px-3 py-2 border border-[#FFB6C1] rounded-lg focus:ring-2 focus:ring-[#FF69B4] focus:border-transparent bg-white/50 backdrop-blur-sm"
+            placeholder="Contraseña"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full py-2 px-4 border border-transparent rounded-lg text-white bg-gradient-to-r from-[#FF69B4] to-[#FF1493] hover:from-[#FF82AB] hover:to-[#FF1493] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF69B4] transition-all duration-200"
+        >
+          Registrarse
+        </button>
+
+        <div className="text-center">
+          <Link 
+            href="/login" 
+            className="text-sm text-gray-600 hover:text-[#FF69B4] transition-colors"
+          >
+            ¿Ya tienes cuenta? <span className="font-medium">Inicia sesión</span>
+          </Link>
+        </div>
+      </form>
     </div>
   )
 } 

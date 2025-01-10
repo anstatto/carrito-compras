@@ -1,9 +1,10 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import ProductInfo from './ProductInfo'
 import AddToCartButton from '../cart/AddToCartButton'
 import ProductImageGallery from './ProductImageGallery'
+import FavoriteButton from '../FavoriteButton'
+import { MarcaProducto } from '@prisma/client'
 
 interface Producto {
   id: string
@@ -12,7 +13,7 @@ interface Producto {
   precio: number
   precioOferta: number | null
   enOferta: boolean
-  marca: string | null
+  marca: MarcaProducto
   existencias: number
   slug: string
   categoria: {
@@ -54,23 +55,22 @@ export default function ProductContent({ producto }: ProductContentProps) {
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <ProductInfo 
-          producto={{
-            id: producto.id,
-            nombre: producto.nombre,
-            descripcion: producto.descripcion,
-            precio: Number(producto.precio),
-            precioOferta: producto.precioOferta ? Number(producto.precioOferta) : null,
-            enOferta: producto.enOferta,
-            marca: producto.marca || undefined,
-            existencias: producto.existencias,
-            categoria: {
-              nombre: producto.categoria.nombre,
-              slug: producto.categoria.slug
-            },
-            slug: producto.slug
-          }}
-        />
+        <div className="flex justify-between items-start gap-4">
+          <div className="flex-1">
+            <motion.h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              {producto.nombre}
+            </motion.h1>
+            {producto.marca && (
+              <p className="text-gray-500 dark:text-gray-400 mt-1">
+                {producto.marca.replace('_', ' ')}
+              </p>
+            )}
+          </div>
+          <FavoriteButton 
+            productoId={producto.id}
+            className="bg-gray-50 dark:bg-gray-800" 
+          />
+        </div>
         
         {producto.existencias > 0 && (
           <AddToCartButton 
@@ -78,7 +78,9 @@ export default function ProductContent({ producto }: ProductContentProps) {
               id: producto.id,
               nombre: producto.nombre,
               precio: producto.precioOferta ? Number(producto.precioOferta) : Number(producto.precio),
-              imagen: producto.imagenes[0]?.url || '/placeholder-product.jpg'
+              imagen: producto.imagenes[0]?.url || '/images/placeholder.png',
+              marca: producto.marca,
+              existencias: Number(producto.existencias)
             }} 
           />
         )}

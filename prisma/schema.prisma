@@ -13,6 +13,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Modelo de Categorías
 model Categoria {
   id            String     @id @default(cuid())
   nombre        String
@@ -26,8 +27,11 @@ model Categoria {
 
   @@map("categorias")
   @@index([slug])
+  @@index([activa])
+  @@index([nombre])
 }
 
+// Modelo de Productos
 model Producto {
   id            String    @id @default(cuid())
   nombre        String
@@ -36,7 +40,7 @@ model Producto {
   imagenes      Image[]   
   slug          String    @unique
   sku           String    @unique
-  marca         String?
+  marca         MarcaProducto
   existencias   Int
   stockMinimo   Int       @default(5) @map("stock_minimo")
   enOferta      Boolean   @default(false) @map("en_oferta")
@@ -49,6 +53,8 @@ model Producto {
   actualizadoEl DateTime  @updatedAt @map("actualizado_el")
   MovimientoInventario MovimientoInventario[]
   items         ItemPedido[]
+  carritoItems  CarritoItem[]
+  favoritos     Favorito[]
 
   @@map("productos")
   @@index([categoriaId])
@@ -62,6 +68,7 @@ model Producto {
   @@index([categoriaId, activo])
 }
 
+// Modelo de Imágenes
 model Image {
   id          String    @id @default(cuid())
   url         String
@@ -76,6 +83,7 @@ model Image {
   @@index([productoId])
 }
 
+// Modelo de Movimientos de Inventario
 model MovimientoInventario {
   id          String    @id @default(cuid())
   producto    Producto  @relation(fields: [productoId], references: [id])
@@ -86,32 +94,43 @@ model MovimientoInventario {
   creadoPor   User      @relation(fields: [userId], references: [id])
   userId      String
   creadoEl    DateTime  @default(now())
+
+  @@map("movimientos_inventario")
+  @@index([productoId])
+  @@index([userId])
 }
 
-enum TipoMovimiento {
-  ENTRADA
-  SALIDA
-  AJUSTE
-  DEVOLUCION
-}
-
+// Modelo de Pedidos
 model Pedido {
   id            String        @id @default(cuid())
   numero        String        @unique
   clienteId     String
   cliente       User          @relation(fields: [clienteId], references: [id])
   items         ItemPedido[]
+  subtotal      Decimal       @default(0)
+  impuestos     Decimal       @default(0)
+  costoEnvio    Decimal       @default(0)
   total         Decimal       @default(0)
   estado        EstadoPedido  @default(PENDIENTE)
-  metodoPago    String?
-  direccion     String?
+  estadoPago    EstadoPago    @default(PENDIENTE) @map("estado_pago")
+  metodoPago    MetodoPago?   @relation(fields: [metodoPagoId], references: [id])
+  metodoPagoId  String?       @map("metodo_pago_id")
+  direccion     Direccion     @relation(fields: [direccionId], references: [id])
+  direccionId   String        @map("direccion_id")
+  stripePaymentIntentId String? @unique @map("stripe_payment_intent_id")
   notas         String?
-  creadoEl      DateTime      @default(now())
-  actualizadoEl DateTime      @updatedAt
+  creadoEl      DateTime      @default(now()) @map("creado_el")
+  actualizadoEl DateTime      @updatedAt @map("actualizado_el")
 
-  @@index([clienteId, estado])
+  @@map("pedidos")
+  @@index([clienteId])
+  @@index([estado])
+  @@index([estadoPago])
+  @@index([creadoEl])
+  @@index([numero])
 }
 
+// Modelo de Items de Pedido
 model ItemPedido {
   id          String   @id @default(cuid())
   pedidoId    String
@@ -121,26 +140,141 @@ model ItemPedido {
   cantidad    Int
   precioUnit  Decimal
   subtotal    Decimal
-  creadoEl    DateTime @default(now())
+  creadoEl    DateTime @default(now()) @map("creado_el")
 
+  @@map("items_pedido")
   @@index([pedidoId])
   @@index([productoId])
+}
+
+// Modelo de Usuario
+model User {
+  id            String      @id @default(cuid())
+  nombre        String
+  apellido      String
+  email         String      @unique
+  password      String
+  role          Role        @default(USER)
+  telefono      String?
+  pedidos       Pedido[]
+  movimientos   MovimientoInventario[]
+  activo        Boolean     @default(true)
+  creadoEl      DateTime    @default(now()) @map("creado_el")
+  actualizadoEl DateTime    @updatedAt @map("actualizado_el")
+  carritoItems  CarritoItem[]
+  favoritos     Favorito[]
+  direcciones   Direccion[]
+  stripeCustomerId String?  @unique @map("stripe_customer_id")
+  metodoPagos   MetodoPago[]
+
+  @@map("usuarios")
+  @@index([email])
+  @@index([activo])
+}
+
+// Modelo de Items del Carrito
+model CarritoItem {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productoId    String    @map("producto_id")
+  producto      Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  cantidad      Int       @default(1)
+  creadoEl      DateTime  @default(now()) @map("creado_el")
+  actualizadoEl DateTime  @updatedAt @map("actualizado_el")
+
+  @@unique([userId, productoId])
+  @@map("carrito_items")
+  @@index([userId])
+  @@index([productoId])
+}
+
+// Modelo de Favoritos
+model Favorito {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  productoId  String
+  producto    Producto  @relation(fields: [productoId], references: [id])
+  creadoEl    DateTime  @default(now()) @map("creado_el")
+
+  @@unique([userId, productoId])
+  @@map("favoritos")
+  @@index([userId])
+  @@index([productoId])
+}
+
+// Modelo de Direcciones
+model Direccion {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  calle         String
+  numeroExt     String
+  numeroInt     String?
+  colonia       String
+  ciudad        String
+  estado        String
+  codigoPostal  String
+  telefono      String
+  predeterminada Boolean  @default(false)
+  pedidos       Pedido[]
+  creadoEl      DateTime  @default(now()) @map("creado_el")
+  actualizadoEl DateTime  @updatedAt @map("actualizado_el")
+
+  @@map("direcciones")
+  @@index([userId])
+}
+
+// Modelo de Métodos de Pago
+model MetodoPago {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  tipo          TipoPago
+  ultimosDigitos String?  @map("ultimos_digitos")
+  marca         String?   @map("marca") // VISA, MASTERCARD, AMEX, etc.
+  predeterminado Boolean  @default(false)
+  stripePaymentMethodId String? @unique @map("stripe_payment_method_id")
+  pedidos       Pedido[]
+  creadoEl      DateTime  @default(now()) @map("creado_el")
+  actualizadoEl DateTime  @updatedAt @map("actualizado_el")
+
+  @@map("metodos_pago")
+  @@index([userId])
+}
+
+// Enums
+enum TipoMovimiento {
+  ENTRADA
+  SALIDA
+  AJUSTE
+  DEVOLUCION
 }
 
 enum EstadoPedido {
   PENDIENTE
   PAGADO
+  CONFIRMADO
   PREPARANDO
   ENVIADO
   ENTREGADO
   CANCELADO
 }
 
-enum MetodoPago {
+enum EstadoPago {
+  PENDIENTE
+  PROCESANDO
+  PAGADO
+  FALLIDO
+  REEMBOLSADO
+}
+
+enum TipoPago {
   TARJETA
+  OXXO
   TRANSFERENCIA
-  PAYPAL
-  EFECTIVO
+  STRIPE
 }
 
 enum Role {
@@ -148,19 +282,21 @@ enum Role {
   ADMIN
 }
 
-model User {
-  id          String    @id @default(cuid())
-  nombre      String
-  apellido    String
-  email       String    @unique
-  password    String
-  role        Role      @default(USER)
-  telefono    String?
-  pedidos     Pedido[]
-  movimientos MovimientoInventario[]
-  activo      Boolean   @default(true)
-  creadoEl    DateTime  @default(now())
-  actualizadoEl DateTime @updatedAt
+// Enum para marcas de tarjetas
+enum MarcaTarjeta {
+  VISA
+  MASTERCARD
+  AMEX
+  CARNET
+}
 
-  @@index([email, activo]) // Índice compuesto para búsquedas frecuentes
+// Enum para marcas de productos
+enum MarcaProducto {
+  ARLIN_GLOW
+  LOREAL
+  MAYBELLINE
+  MAC
+  NIVEA
+  NEUTROGENA
+  OTRO
 }

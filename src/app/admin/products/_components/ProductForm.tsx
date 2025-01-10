@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, memo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ImageSelector } from './ImageSelector'
@@ -8,6 +8,8 @@ import { toast } from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import type { ProductFormData } from '@/interfaces/Product'
 import type { Category } from '@/interfaces/Category'
+import useSWR from 'swr'
+import { MarcaProducto } from '@prisma/client'
 
 interface ProductFormProps {
   formData: ProductFormData
@@ -15,33 +17,76 @@ interface ProductFormProps {
   isEditing: boolean
 }
 
-export function ProductForm({ formData, setFormData, isEditing }: ProductFormProps) {
+const fetcher = (url: string) => fetch(url).then(res => res.json())
+
+// Obtener los valores del enum MarcaProducto
+const marcas = Object.values(MarcaProducto)
+
+export const ProductForm = memo(function ProductForm({ 
+  formData, 
+  setFormData, 
+  isEditing 
+}: ProductFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
 
-  useEffect(() => {
-    fetchCategories()
-  }, [])
+  // Usar SWR para el caché de categorías
+  const { data: categoriesData, error } = useSWR<Category[]>(
+    '/api/categories',
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false
+    }
+  )
 
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch('/api/categories')
-      if (!res.ok) throw new Error('Error al cargar categorías')
-      const data = await res.json()
-      setCategories(data)
-    } catch {
+  useEffect(() => {
+    if (error) {
       toast.error('Error al cargar las categorías')
     }
-  }
+    if (categoriesData) {
+      setCategories(categoriesData)
+    }
+  }, [categoriesData, error])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (formData.imagenes.length === 0) {
+      toast.error('Debe agregar al menos una imagen')
+      return
+    }
+
+    if (!formData.nombre?.trim()) {
+      toast.error('El nombre es requerido')
+      return
+    }
+
+    if (!formData.descripcion?.trim()) {
+      toast.error('La descripción es requerida') 
+      return
+    }
+
+    if (!formData.categoriaId) {
+      toast.error('Debe seleccionar una categoría')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       const submitData = {
         ...formData,
+        nombre: formData.nombre.trim(),
+        descripcion: formData.descripcion.trim(),
+        imagenes: formData.imagenes.map(img => ({
+          ...img,
+          url: img.url.includes('/productos/') 
+            ? img.url 
+            : `/productos/${img.url.split('/').pop()}`,
+          alt: img.alt?.trim() || 'Imagen de producto'
+        })),
         precio: Number(formData.precio) || 0,
         existencias: Number(formData.existencias) || 0,
         stockMinimo: Number(formData.stockMinimo) || 0,
@@ -53,33 +98,32 @@ export function ProductForm({ formData, setFormData, isEditing }: ProductFormPro
         destacado: Boolean(formData.destacado)
       }
 
-      console.log('Enviando datos:', submitData)
-
       const url = isEditing 
         ? `/api/products/${formData.id}`
         : '/api/products'
 
       const res = await fetch(url, {
-        method: isEditing ? 'PATCH' : 'POST',
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)
       })
 
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.details || 'Error al guardar producto')
+      const result = await res.json()
+
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Error al guardar producto')
       }
       
-      toast.success(isEditing ? 'Producto actualizado' : 'Producto creado')
+      toast.success(isEditing ? 'Producto actualizado exitosamente' : 'Producto creado exitosamente')
       router.push('/admin/products')
       router.refresh()
     } catch (error) {
       console.error('Error:', error)
-      toast.error((error as Error).message)
+      toast.error((error as Error).message || 'Error al procesar la solicitud')
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [formData, isEditing, router])
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -87,6 +131,18 @@ export function ProductForm({ formData, setFormData, isEditing }: ProductFormPro
     if (/^\d*\.?\d{0,2}$/.test(value) || value === '') {
       const precio = value === '' ? 0 : parseFloat(value)
       setFormData({ ...formData, precio })
+    }
+  }
+
+  const handleOfferPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    if (/^\d*\.?\d{0,2}$/.test(value) || value === '') {
+      const precioOferta = value === '' ? 0 : parseFloat(value)
+      if (precioOferta >= formData.precio) {
+        toast.error('El precio de oferta debe ser menor al precio regular')
+        return
+      }
+      setFormData({ ...formData, precioOferta })
     }
   }
 
@@ -105,6 +161,7 @@ export function ProductForm({ formData, setFormData, isEditing }: ProductFormPro
             onChange={e => setFormData({ ...formData, nombre: e.target.value })}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm transition duration-150 ease-in-out hover:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
             placeholder="Ingrese el nombre del producto"
+            maxLength={100}
             required
           />
         </motion.div>
@@ -124,6 +181,27 @@ export function ProductForm({ formData, setFormData, isEditing }: ProductFormPro
             <option value="">Seleccionar categoría</option>
             {categories.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+            ))}
+          </select>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+          <select
+            value={formData.marca}
+            onChange={e => setFormData({ ...formData, marca: e.target.value as MarcaProducto })}
+            className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm transition duration-150 ease-in-out hover:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+            required
+          >
+            <option value="">Seleccionar marca</option>
+            {marcas.map(marca => (
+              <option key={marca} value={marca}>
+                {marca.charAt(0) + marca.slice(1).toLowerCase()}
+              </option>
             ))}
           </select>
         </motion.div>
@@ -170,6 +248,7 @@ export function ProductForm({ formData, setFormData, isEditing }: ProductFormPro
             className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm transition duration-150 ease-in-out hover:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
             placeholder="Cantidad disponible"
             min="0"
+            max="99999"
             required
           />
         </motion.div>
@@ -185,10 +264,14 @@ export function ProductForm({ formData, setFormData, isEditing }: ProductFormPro
             value={formData.descripcion}
             onChange={e => setFormData({ ...formData, descripcion: e.target.value })}
             rows={4}
+            maxLength={500}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm transition duration-150 ease-in-out hover:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
             placeholder="Describe el producto..."
             required
           />
+          <span className="text-xs text-gray-500">
+            {formData.descripcion?.length || 0}/500 caracteres
+          </span>
         </motion.div>
 
         <ImageSelector
@@ -244,19 +327,22 @@ export function ProductForm({ formData, setFormData, isEditing }: ProductFormPro
                   $
                 </span>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={formData.precioOferta || ''}
-                  onChange={e => setFormData({
-                    ...formData,
-                    precioOferta: parseFloat(e.target.value)
-                  })}
+                  onChange={handleOfferPriceChange}
                   className="w-full pl-8 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
                   placeholder="0.00"
+                  pattern="^\d*\.?\d{0,2}$"
                   required={formData.enOferta}
                 />
               </div>
+              {formData.precioOferta != null && formData.precioOferta > 0 && (
+                <span className="text-xs text-gray-500 block mt-1">
+                  Ahorro: ${(formData.precio - formData.precioOferta).toFixed(2)} 
+                  ({Math.round((1 - formData.precioOferta / formData.precio) * 100)}% descuento)
+                </span>
+              )}
             </motion.div>
           )}
         </motion.div>
@@ -322,4 +408,4 @@ export function ProductForm({ formData, setFormData, isEditing }: ProductFormPro
       </div>
     </form>
   )
-}
+})

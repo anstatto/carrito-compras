@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { Prisma } from '@prisma/client'
+import { ProductFormData } from '@/interfaces/Product'
 
 
 interface Params {
@@ -11,15 +12,33 @@ interface Params {
   }
 }
 
-export async function GET(request: Request, { params }: Params) {
+interface ProductImage {
+  url: string;
+  alt?: string | null;
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
+    // Asegurarnos que tenemos el id
+    const id = await params.id
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID de producto requerido' },
+        { status: 400 }
+      )
+    }
+
     const producto = await prisma.producto.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         nombre: true,
         descripcion: true,
         precio: true,
+        marca: true,
         existencias: true,
         stockMinimo: true,
         slug: true,
@@ -54,70 +73,106 @@ export async function GET(request: Request, { params }: Params) {
       )
     }
 
-    return NextResponse.json(producto)
+    // Procesar URLs de imágenes
+    const processedProduct = {
+      ...producto,
+      imagenes: producto.imagenes.map(img => ({
+        ...img,
+        url: `/productos/${img.url.split('/').pop()}`
+      }))
+    }
+
+    return NextResponse.json(processedProduct)
   } catch (error) {
     console.error('Error al obtener producto:', error)
     return NextResponse.json(
-      { error: 'Error al obtener el producto' },
+      { error: 'Error al obtener producto' },
       { status: 500 }
     )
   }
 }
 
-export async function PUT(request: Request, { params }: Params) {
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
-    const data = await request.json()
-    
-    // Validar datos requeridos
-    if (!data.nombre || !data.precio || !data.categoriaId) {
-      return NextResponse.json(
-        { error: 'Faltan campos requeridos' },
-        { status: 400 }
-      )
+    // 1. Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({
+        success: false,
+        error: 'No autorizado'
+      }, { status: 401 })
     }
 
-    // Actualizar producto
-    const producto = await prisma.producto.update({
-      where: { id: params.id },
-      data: {
-        nombre: data.nombre,
-        descripcion: data.descripcion,
-        precio: data.precio,
-        existencias: data.existencias,
-        stockMinimo: data.stockMinimo,
-        categoriaId: data.categoriaId,
-        slug: data.slug || data.nombre.toLowerCase().replace(/ /g, '-'),
-        sku: data.sku || `SKU-${Date.now()}`,
-        activo: data.activo
+    // 2. Obtener y validar datos
+    const productId = params.id
+    const requestData = await request.json() as ProductFormData
+
+    // 3. Actualizar producto base
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      // Actualizar producto principal
+      const producto = await tx.producto.update({
+        where: { 
+          id: productId 
+        },
+        data: {
+          nombre: requestData.nombre,
+          descripcion: requestData.descripcion,
+          precio: new Prisma.Decimal(requestData.precio),
+          existencias: requestData.existencias,
+          stockMinimo: requestData.stockMinimo,
+          categoriaId: requestData.categoriaId,
+          activo: requestData.activo,
+          enOferta: requestData.enOferta,
+          precioOferta: requestData.precioOferta 
+            ? new Prisma.Decimal(requestData.precioOferta) 
+            : null,
+          destacado: requestData.destacado,
+          actualizadoEl: new Date()
+        }
+      })
+
+      // Actualizar imágenes si existen
+      if (requestData.imagenes?.length > 0) {
+        await tx.image.deleteMany({
+          where: { productoId: productId }
+        })
+
+        await tx.image.createMany({
+          data: requestData.imagenes.map((img, index) => ({
+            url: img.url,
+            alt: img.alt || producto.nombre,
+            principal: index === 0,
+            orden: index,
+            productoId: productId
+          }))
+        })
       }
+
+      // Retornar producto actualizado con relaciones
+      return tx.producto.findUnique({
+        where: { id: productId },
+        include: {
+          categoria: true,
+          imagenes: true
+        }
+      })
     })
 
-    // Si hay imágenes nuevas, actualizar
-    if (data.imagenes?.length > 0) {
-      // Eliminar imágenes anteriores
-      await prisma.image.deleteMany({
-        where: { productoId: params.id }
-      })
+    return NextResponse.json({
+      success: true,
+      data: updatedProduct
+    })
 
-      // Crear nuevas imágenes
-      await prisma.image.createMany({
-        data: data.imagenes.map((img: { url: string; alt: string }, index: number) => ({
-          url: img.url,
-          alt: img.alt || producto.nombre,
-          principal: index === 0,
-          orden: index,
-          productoId: producto.id
-        }))
-      })
-    }
-
-    return NextResponse.json(producto)
   } catch (error) {
     console.error('Error al actualizar producto:', error)
-    return NextResponse.json(
-      { error: 'Error al actualizar el producto' },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      success: false,
+      error: 'Error al actualizar producto',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    }, { status: 500 })
   }
 }
 
@@ -162,91 +217,20 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+      return NextResponse.json({
+        success: false,
+        error: 'No autorizado'
+      }, { status: 401 })
     }
 
+    const id = params.id
     const data = await request.json()
 
-    // Si solo es activar/desactivar, cambiar oferta o destacado
-    if (data.activo !== undefined || data.enOferta !== undefined || data.destacado !== undefined) {
-      const producto = await prisma.producto.update({
-        where: { 
-          id: params.id 
-        },
-        data: {
-          activo: data.activo,
-          enOferta: data.enOferta,
-          destacado: data.destacado,
-          precioOferta: data.precioOferta ? new Prisma.Decimal(data.precioOferta) : undefined,
-          actualizadoEl: new Date()
-        },
-        include: {
-          categoria: true,
-          imagenes: {
-            select: {
-              id: true,
-              url: true,
-              alt: true
-            }
-          }
-        }
-      })
-
-      return NextResponse.json(producto)
-    }
-
-    // Si es actualización completa del producto
     const producto = await prisma.producto.update({
-      where: { 
-        id: params.id 
-      },
-      data: {
-        nombre: data.nombre,
-        descripcion: data.descripcion,
-        precio: new Prisma.Decimal(data.precio),
-        existencias: parseInt(String(data.existencias)),
-        stockMinimo: parseInt(String(data.stockMinimo)),
-        categoriaId: data.categoriaId,
-        sku: data.sku,
-        slug: data.slug,
-        destacado: data.destacado,
-        actualizadoEl: new Date()
-      },
-      include: {
-        categoria: true,
-        imagenes: {
-          select: {
-            id: true,
-            url: true,
-            alt: true,
-            principal: true,
-            orden: true
-          }
-        }
-      }
-    })
-
-    return NextResponse.json(producto)
-  } catch (error) {
-    console.error('Error al actualizar producto:', error)
-    return NextResponse.json(
-      { error: 'Error al actualizar producto', details: (error as Error).message },
-      { status: 500 }
-    )
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const data = await request.json()
-    
-    const product = await prisma.producto.create({
+      where: { id },
       data: {
         ...data,
-        precio: new Prisma.Decimal(data.precio),
-        precioOferta: data.enOferta && data.precioOferta 
-          ? new Prisma.Decimal(data.precioOferta) 
-          : null
+        actualizadoEl: new Date()
       },
       include: {
         categoria: true,
@@ -254,12 +238,100 @@ export async function POST(request: Request) {
       }
     })
 
-    return NextResponse.json(product)
+    return NextResponse.json({
+      success: true,
+      data: producto
+    })
+
   } catch (error) {
-    console.error('Error:', error)
-    return NextResponse.json(
-      { error: 'Error al crear el producto' },
-      { status: 500 }
-    )
+    console.error('Error al actualizar producto:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'Error al actualizar producto',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({
+        success: false,
+        error: 'No autorizado'
+      }, { status: 401 })
+    }
+
+    const data = await request.json()
+    
+    // Validar datos requeridos
+    if (!data.nombre || !data.precio || !data.categoriaId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Faltan campos requeridos'
+      }, { status: 400 })
+    }
+
+    const product = await prisma.$transaction(async (tx) => {
+      // Crear el producto
+      const newProduct = await tx.producto.create({
+        data: {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          precio: new Prisma.Decimal(data.precio),
+          existencias: data.existencias,
+          stockMinimo: data.stockMinimo,
+          categoriaId: data.categoriaId,
+          activo: data.activo,
+          enOferta: data.enOferta,
+          precioOferta: data.precioOferta 
+            ? new Prisma.Decimal(data.precioOferta) 
+            : null,
+          destacado: data.destacado,
+          slug: data.slug || data.nombre.toLowerCase().replace(/ /g, '-'),
+          sku: data.sku || `SKU-${Date.now()}`,
+          marca: data.marca || 'GENERICO',
+          categoria: {
+            connect: { id: data.categoriaId }
+          }
+        }
+      })
+
+      // Crear imágenes si existen
+      if (data.imagenes?.length > 0) {
+        await tx.image.createMany({
+          data: data.imagenes.map((img: ProductImage, index: number) => ({
+            url: img.url,
+            alt: img.alt || newProduct.nombre,
+            principal: index === 0,
+            orden: index,
+            productoId: newProduct.id
+          }))
+        })
+      }
+
+      // Retornar producto con relaciones
+      return tx.producto.findUnique({
+        where: { id: newProduct.id },
+        include: {
+          categoria: true,
+          imagenes: true
+        }
+      })
+    })
+
+    return NextResponse.json({
+      success: true,
+      data: product
+    })
+
+  } catch (error) {
+    console.error('Error al crear producto:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'Error al crear el producto',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    }, { status: 500 })
   }
 }

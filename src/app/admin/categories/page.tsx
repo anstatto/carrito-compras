@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import type { Category } from '@/interfaces/Category'
-import { OptimizedImage } from '@/components/OptimizedImage'
+import OptimizedImage from '@/components/OptimizedImage'
 
 export default function CategoriesPage() {
   const { data: session, status } = useSession()

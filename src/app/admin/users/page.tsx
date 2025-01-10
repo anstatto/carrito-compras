@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { FaSearch, FaUserEdit, FaBan, FaCheck, FaPlus, FaTimes } from 'react-icons/fa'
 import { toast } from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import { memo } from 'react'
 
 interface User {
   id: string
@@ -32,6 +33,90 @@ interface StatusChange {
   newStatus: boolean;
 }
 
+// Memoizar componentes para mejor rendimiento
+const UserRow = memo(({ 
+  user, 
+  onRoleChange, 
+  onStatusChange 
+}: { 
+  user: User
+  onRoleChange: (id: string, role: 'USER' | 'ADMIN') => void
+  onStatusChange: (id: string, status: boolean) => void
+}) => (
+  <tr className="hover:bg-gray-50 transition-colors duration-200">
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="text-sm font-medium text-gray-900">
+        {user.nombre} {user.apellido}
+      </div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="text-sm text-gray-500">{user.email}</div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+        user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+      }`}>
+        {user.role}
+      </span>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+        user.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+      }`}>
+        {user.activo ? 'Activo' : 'Inactivo'}
+      </span>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      {new Date(user.creadoEl).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })}
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => onRoleChange(user.id, user.role === 'ADMIN' ? 'USER' : 'ADMIN')}
+          className="text-purple-600 hover:text-purple-900 transition-colors duration-200"
+          title={`Cambiar a ${user.role === 'ADMIN' ? 'Usuario' : 'Administrador'}`}
+        >
+          <FaUserEdit className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => onStatusChange(user.id, user.activo)}
+          className={`${
+            user.activo ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'
+          } transition-colors duration-200`}
+          title={user.activo ? 'Desactivar usuario' : 'Activar usuario'}
+        >
+          {user.activo ? <FaBan className="w-5 h-5" /> : <FaCheck className="w-5 h-5" />}
+        </button>
+      </div>
+    </td>
+  </tr>
+))
+UserRow.displayName = 'UserRow'
+
+const SearchBar = memo(({ 
+  value, 
+  onChange 
+}: { 
+  value: string
+  onChange: (value: string) => void 
+}) => (
+  <div className="relative flex-1 sm:flex-initial">
+    <input
+      type="text"
+      placeholder="Buscar usuarios..."
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-pink-500"
+    />
+    <FaSearch className="absolute left-3 top-3 text-gray-400" />
+  </div>
+))
+SearchBar.displayName = 'SearchBar'
+
 export default function UsersPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -55,6 +140,26 @@ export default function UsersPage() {
   } | null>(null)
   const [pendingStatusChange, setPendingStatusChange] = useState<StatusChange | null>(null)
   const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      setError(null)
+      const res = await fetch('/api/users')
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Error al cargar usuarios')
+      }
+      const data = await res.json()
+      setUsers(data)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al cargar los usuarios'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (status === 'loading') return
@@ -63,21 +168,7 @@ export default function UsersPage() {
       return
     }
     fetchUsers()
-  }, [session, status, router])
-
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch('/api/users')
-      if (!res.ok) throw new Error('Error al cargar usuarios')
-      const data = await res.json()
-      setUsers(data)
-    } catch (error) {
-      toast.error('Error al cargar los usuarios')
-      console.error(error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  }, [session, status, router, fetchUsers])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -141,10 +232,10 @@ export default function UsersPage() {
     })
   }
 
-  const initiateRoleChange = (userId: string, newRole: 'USER' | 'ADMIN') => {
+  const initiateRoleChange = useCallback(async (userId: string, newRole: 'USER' | 'ADMIN') => {
     setPendingRoleChange({ userId, newRole })
     setShowConfirmModal(true)
-  }
+  }, [])
 
   const handleRoleChangeConfirm = async (password: string) => {
     if (!pendingRoleChange) return
@@ -189,10 +280,10 @@ export default function UsersPage() {
     }
   }
 
-  const initiateStatusChange = (userId: string, currentStatus: boolean) => {
+  const initiateStatusChange = useCallback(async (userId: string, currentStatus: boolean) => {
     setPendingStatusChange({ userId, newStatus: !currentStatus })
     setShowStatusConfirmModal(true)
-  }
+  }, [])
 
   const handleStatusChangeConfirm = async (password: string) => {
     if (!pendingStatusChange) return
@@ -236,10 +327,14 @@ export default function UsersPage() {
     }
   }
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.apellido.toLowerCase().includes(searchTerm.toLowerCase())
+  // Memoizar usuarios filtrados
+  const filteredUsers = useMemo(() => 
+    users.filter(user =>
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.apellido.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
+    [users, searchTerm]
   )
 
   if (status === 'loading' || isLoading) {
@@ -254,22 +349,26 @@ export default function UsersPage() {
     return null
   }
 
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-red-500">
+          {error}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-6">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Usuarios</h1>
         
         <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-initial">
-            <input
-              type="text"
-              placeholder="Buscar usuarios..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-pink-500 focus:border-pink-500"
-            />
-            <FaSearch className="absolute left-3 top-3 text-gray-400" />
-          </div>
+          <SearchBar
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
           
           <button
             onClick={() => handleOpenModal()}
@@ -302,59 +401,16 @@ export default function UsersPage() {
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-200">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {user.nombre} {user.apellido}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(user.creadoEl).toLocaleDateString('es-ES', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => initiateRoleChange(user.id, user.role === 'ADMIN' ? 'USER' : 'ADMIN')}
-                          className="text-purple-600 hover:text-purple-900 transition-colors duration-200"
-                          title={`Cambiar a ${user.role === 'ADMIN' ? 'Usuario' : 'Administrador'}`}
-                        >
-                          <FaUserEdit className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => initiateStatusChange(user.id, user.activo)}
-                          className={`${
-                            user.activo ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'
-                          } transition-colors duration-200`}
-                          title={user.activo ? 'Desactivar usuario' : 'Activar usuario'}
-                        >
-                          {user.activo ? <FaBan className="w-5 h-5" /> : <FaCheck className="w-5 h-5" />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                <AnimatePresence>
+                  {filteredUsers.map(user => (
+                    <UserRow
+                      key={user.id}
+                      user={user}
+                      onRoleChange={initiateRoleChange}
+                      onStatusChange={initiateStatusChange}
+                    />
+                  ))}
+                </AnimatePresence>
               )}
             </tbody>
           </table>

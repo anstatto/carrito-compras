@@ -34,7 +34,7 @@ const itemVariants = {
 
 export default function FeaturedProducts({ products }: FeaturedProductsProps) {
   return (
-    <section className="py-24 sm:py-32 bg-gradient-to-b from-pink-50/70 via-white to-pink-50/50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <section className="py-24 sm:py-32 bg-gradient-to-b from-[#FFF0F5]/70 via-white to-[#FFF0F5]/50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -43,13 +43,13 @@ export default function FeaturedProducts({ products }: FeaturedProductsProps) {
           className="text-center mb-20"
         >
           <div className="flex items-center justify-center gap-3 mb-6">
-            <FaStar className="text-pink-500 text-3xl animate-pulse" />
-            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-pink-500 bg-pink-50 dark:bg-pink-500/10 py-2 px-4 rounded-full">
+            <FaStar className="text-[#FF69B4] text-3xl animate-pulse" />
+            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-[#FF69B4] bg-[#FFF0F5] dark:bg-[#FF69B4]/10 py-2 px-4 rounded-full">
               Destacados
             </span>
-            <FaStar className="text-pink-500 text-3xl animate-pulse" />
+            <FaStar className="text-[#FF69B4] text-3xl animate-pulse" />
           </div>
-          <h2 className="text-5xl md:text-6xl font-bold mb-8 bg-gradient-to-r from-pink-500 via-purple-500 to-violet-500 text-transparent bg-clip-text">
+          <h2 className="text-5xl md:text-6xl font-bold mb-8 bg-gradient-to-r from-[#FF69B4] via-[#FF82AB] to-[#FF1493] text-transparent bg-clip-text">
             Productos Destacados
           </h2>
           <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto text-lg font-light">
@@ -74,16 +74,6 @@ export default function FeaturedProducts({ products }: FeaturedProductsProps) {
               >
                 <div className="relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300">
                   <ProductCard product={product} />
-                  <motion.div
-                    initial={{ scale: 0, rotate: -15 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ delay: 0.5, type: "spring" }}
-                    className="absolute top-2 left-2 bg-gradient-to-r from-pink-500 to-violet-500 
-                             text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg
-                             border-2 border-white dark:border-gray-800"
-                  >
-                    ⭐ Destacado
-                  </motion.div>
                 </div>
               </motion.div>
             ))}

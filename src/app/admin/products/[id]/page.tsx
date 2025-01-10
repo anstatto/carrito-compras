@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { FaArrowLeft, FaEdit, FaTrash, FaEye, FaEyeSlash } from 'react-icons/fa'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { motion } from 'framer-motion'
 import type { Product } from '@/interfaces/Product'
-import { OptimizedImage } from '@/components/OptimizedImage'
+import OptimizedImage from '@/components/OptimizedImage'
 import React from 'react'
 
 interface Props {
@@ -20,25 +20,23 @@ export default function ShowProductPage({ params }: Props) {
   const [product, setProduct] = useState<Product | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const res = await fetch(`/api/products/${id}`)
-        if (!res.ok) throw new Error('Error al cargar producto')
-        const data = await res.json()
-        setProduct(data)
-      } catch (error) {
-        toast.error('Error al cargar el producto')
-        console.error(error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    if (id) {
-      fetchProduct()
+  const fetchProduct = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/products/${id}`)
+      if (!res.ok) throw new Error('Error al cargar producto')
+      const data = await res.json()
+      setProduct(data)
+    } catch (error) {
+      toast.error('Error al cargar el producto')
+      console.error(error)
+    } finally {
+      setIsLoading(false)
     }
   }, [id])
+
+  useEffect(() => {
+    fetchProduct()
+  }, [fetchProduct])
 
   const handleDelete = async () => {
     if (!confirm('¿Estás seguro de eliminar este producto?')) return

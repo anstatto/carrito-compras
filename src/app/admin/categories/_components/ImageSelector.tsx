@@ -1,24 +1,44 @@
 'use client'
 
-import { useState } from 'react'
+import dynamic from 'next/dynamic'
+import { useState, useCallback, memo } from 'react'
 import Image from 'next/image'
 import { FaPlus, FaTimes, FaImages } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-hot-toast'
-import GalleryPage from '../../gallery/page'
+
+// Cargar GalleryPage de forma dinámica
+const GalleryPage = dynamic(() => import('../../gallery/page'), {
+  loading: () => <div>Cargando galería...</div>,
+  ssr: false
+})
 
 interface ImageSelectorProps {
   currentImage: string | null
   onImageSelect: (url: string) => void
 }
 
-export function ImageSelector({ currentImage, onImageSelect }: ImageSelectorProps) {
+export const ImageSelector = memo(function ImageSelector({ 
+  currentImage, 
+  onImageSelect 
+}: ImageSelectorProps) {
   const [showGallery, setShowGallery] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Validar tamaño y tipo de archivo
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('La imagen no debe superar 5MB')
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('El archivo debe ser una imagen')
+      return
+    }
 
     setIsUploading(true)
     try {
@@ -43,7 +63,7 @@ export function ImageSelector({ currentImage, onImageSelect }: ImageSelectorProp
     } finally {
       setIsUploading(false)
     }
-  }
+  }, [onImageSelect])
 
   return (
     <div className="space-y-4">
@@ -154,4 +174,4 @@ export function ImageSelector({ currentImage, onImageSelect }: ImageSelectorProp
       </AnimatePresence>
     </div>
   )
-} 
+}) 

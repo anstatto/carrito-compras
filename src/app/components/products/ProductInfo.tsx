@@ -48,7 +48,7 @@ export default function ProductInfo({ producto }: ProductInfoProps) {
       </div>
 
       <div className="flex items-baseline gap-4">
-        <span className="text-2xl font-bold text-pink-600">
+        <span className="text-2xl font-bold text-[#FF69B4]">
           ${precioFinal.toFixed(2)}
         </span>
         {producto.enOferta && producto.precioOferta && (
@@ -83,7 +83,7 @@ export default function ProductInfo({ producto }: ProductInfoProps) {
 
       <Link 
         href={`/productos/${producto.slug}`}
-        className="inline-flex items-center gap-2 text-pink-600 hover:text-pink-700"
+        className="inline-flex items-center gap-2 text-[#FF69B4] hover:text-[#FF1493]"
       >
         Ver detalles del producto
         <FaArrowRight className="w-4 h-4" />
