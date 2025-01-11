@@ -11,6 +11,7 @@ declare module "next-auth" {
     activo: boolean
     isAdmin?: boolean
     stripeCustomerId?: string | null
+    carritoActualizado?: Date | null
   }
 
   interface Session {
@@ -23,6 +24,7 @@ declare module "next-auth" {
       activo: boolean
       isAdmin?: boolean
       stripeCustomerId?: string | null
+      carritoActualizado?: Date | null
     }
   }
 }

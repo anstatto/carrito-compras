@@ -68,6 +68,7 @@ async function getFeaturedProducts() {
       imagenes: product.imagenes,
       slug: product.slug,
       categoria: product.categoria,
+      marca: product.marca,
       existencias: product.existencias
     } satisfies ProductView))
   } catch (error) {

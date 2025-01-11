@@ -1,24 +1,31 @@
 :root {
-  /* Colores principales */
-  --primary-pink: #FF69B4;
-  --primary-pink-light: #FF82AB;
-  --primary-pink-dark: #FF1493;
+  /* Colores principales - basados en la imagen */
+  --primary-pink: #FF82B2;
+  --primary-pink-light: #FF9BC2;
+  --primary-pink-dark: #FF5C98;
   
   /* Colores secundarios */
-  --secondary-pink: #FFB6C1;
-  --secondary-pink-light: #FFC0CB;
-  --secondary-pink-dark: #FF82AB;
+  --secondary-pink: #FFD6E5;
+  --secondary-pink-light: #FFE5EF;
+  --secondary-pink-dark: #FFC1D8;
   
   /* Fondos */
-  --background-pink: #FFF0F5;
-  --background-pink-dark: #2D1F26;
+  --background-pink: #FFF5F8;
+  --background-white: #FFFFFF;
   
   /* Texto */
-  --text-dark: #333333;
+  --text-dark: #2D2D2D;
   --text-light: #FFFFFF;
-  --text-muted: #666666;
+  --text-muted: #757575;
   
-  /* Gradientes */
-  --gradient-primary: linear-gradient(to right, #FF69B4, #FF1493);
-  --gradient-secondary: linear-gradient(to right, #FFB6C1, #FF82AB);
+  /* Bordes y sombras */
+  --border-light: #EAEAEA;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  
+  /* Estados */
+  --success: #4CAF50;
+  --error: #FF5252;
+  --warning: #FFC107;
+  --info: #2196F3;
 } 

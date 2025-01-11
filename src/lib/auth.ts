@@ -33,6 +33,9 @@ export const authOptions: NextAuthOptions = {
             where: { 
               email: credentials.email,
               activo: true
+            },
+            include: {
+              carritoItems: true
             }
           })
 
@@ -47,14 +50,8 @@ export const authOptions: NextAuthOptions = {
           }
 
           return {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            nombre: user.nombre,
-            apellido: user.apellido,
-            activo: user.activo,
-            isAdmin: user.role === 'ADMIN',
-            stripeCustomerId: user.stripeCustomerId
+            ...user,
+            isAdmin: user.role === 'ADMIN'
           }
         } catch (error) {
           console.error('Error en authorize:', error)
@@ -73,6 +70,7 @@ export const authOptions: NextAuthOptions = {
         token.activo = user.activo
         token.isAdmin = user.role === 'ADMIN'
         token.stripeCustomerId = user.stripeCustomerId
+        token.carritoActualizado = user.carritoActualizado
       }
       return token
     },
@@ -84,7 +82,8 @@ export const authOptions: NextAuthOptions = {
         session.user.apellido = token.apellido
         session.user.activo = token.activo
         session.user.isAdmin = token.role === 'ADMIN'
-        session.user.stripeCustomerId = token.stripeCustomerId as string | null | undefined
+        session.user.stripeCustomerId = token.stripeCustomerId
+        session.user.carritoActualizado = token.carritoActualizado as Date | null
       }
       return session
     }

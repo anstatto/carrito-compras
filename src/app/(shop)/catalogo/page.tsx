@@ -135,7 +135,8 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Sea
     categoria: p.categoria,
     imagenes: p.imagenes,
     slug: p.slug,
-    existencias: p.existencias
+    existencias: p.existencias,
+    marca: p.marca
   } satisfies ProductView))
 
   const serializedCategories = categorias.map(c => ({

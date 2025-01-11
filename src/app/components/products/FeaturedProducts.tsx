@@ -42,19 +42,20 @@ export default function FeaturedProducts({ products }: FeaturedProductsProps) {
           viewport={{ once: true }}
           className="text-center mb-20"
         >
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <FaStar className="text-[#FF69B4] text-3xl animate-pulse" />
-            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-[#FF69B4] bg-[#FFF0F5] dark:bg-[#FF69B4]/10 py-2 px-4 rounded-full">
-              Destacados
+          <div className="flex items-center justify-center gap-4 mb-8">
+            <FaStar className="text-[#FF69B4] text-4xl animate-pulse hover:scale-110 transition-transform" />
+            <span className="text-base font-bold uppercase tracking-[0.25em] text-[#FF69B4] bg-[#FFF0F5] dark:bg-[#FF69B4]/10 py-3 px-6 rounded-full shadow-md hover:shadow-lg transition-all">
+              Productos Destacados
             </span>
-            <FaStar className="text-[#FF69B4] text-3xl animate-pulse" />
+            <FaStar className="text-[#FF69B4] text-4xl animate-pulse hover:scale-110 transition-transform" />
           </div>
-          <h2 className="text-5xl md:text-6xl font-bold mb-8 bg-gradient-to-r from-[#FF69B4] via-[#FF82AB] to-[#FF1493] text-transparent bg-clip-text">
-            Productos Destacados
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-10 bg-gradient-to-r from-[#FF69B4] via-[#FF82AB] to-[#FF1493] text-transparent bg-clip-text leading-tight">
+            Descubre Nuestra Colección Premium
+            <span className="block text-2xl md:text-3xl mt-4 font-medium text-gray-600 dark:text-gray-300">
+              Productos seleccionados por su excelencia y respaldados por la satisfacción de nuestros clientes
+            </span>
           </h2>
-          <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto text-lg font-light">
-            Descubre nuestra selección especial de productos más populares
-          </p>
+
         </motion.div>
 
         <motion.div 

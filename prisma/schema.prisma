@@ -43,6 +43,7 @@ model Producto {
   marca         MarcaProducto
   existencias   Int
   stockMinimo   Int       @default(5) @map("stock_minimo")
+  limitePorCompra Int?    @map("limite_por_compra")
   enOferta      Boolean   @default(false) @map("en_oferta")
   precioOferta  Decimal?  @db.Decimal(10,2) @map("precio_oferta")
   destacado     Boolean   @default(false)
@@ -66,6 +67,7 @@ model Producto {
   @@index([destacado])
   @@index([activo, enOferta])
   @@index([categoriaId, activo])
+  @@index([existencias])
 }
 
 // Modelo de Imágenes
@@ -149,23 +151,24 @@ model ItemPedido {
 
 // Modelo de Usuario
 model User {
-  id            String      @id @default(cuid())
-  nombre        String
-  apellido      String
-  email         String      @unique
-  password      String
-  role          Role        @default(USER)
-  telefono      String?
-  pedidos       Pedido[]
-  movimientos   MovimientoInventario[]
-  activo        Boolean     @default(true)
-  creadoEl      DateTime    @default(now()) @map("creado_el")
-  actualizadoEl DateTime    @updatedAt @map("actualizado_el")
-  carritoItems  CarritoItem[]
-  favoritos     Favorito[]
-  direcciones   Direccion[]
-  stripeCustomerId String?  @unique @map("stripe_customer_id")
-  metodoPagos   MetodoPago[]
+  id                String      @id @default(cuid())
+  nombre            String
+  apellido          String
+  email             String      @unique
+  password          String
+  role              Role        @default(USER)
+  telefono          String?
+  pedidos           Pedido[]
+  movimientos       MovimientoInventario[]
+  activo            Boolean     @default(true)
+  creadoEl          DateTime    @default(now()) @map("creado_el")
+  actualizadoEl     DateTime    @updatedAt @map("actualizado_el")
+  carritoItems      CarritoItem[]
+  carritoActualizado DateTime?  @map("carrito_actualizado")
+  favoritos         Favorito[]
+  direcciones       Direccion[]
+  stripeCustomerId  String?  @unique @map("stripe_customer_id")
+  metodoPagos       MetodoPago[]
 
   @@map("usuarios")
   @@index([email])
@@ -180,6 +183,8 @@ model CarritoItem {
   productoId    String    @map("producto_id")
   producto      Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
   cantidad      Int       @default(1)
+  precioUnitario Decimal  @db.Decimal(10,2) @map("precio_unitario")
+  subtotal      Decimal   @db.Decimal(10,2)
   creadoEl      DateTime  @default(now()) @map("creado_el")
   actualizadoEl DateTime  @updatedAt @map("actualizado_el")
 
@@ -187,6 +192,7 @@ model CarritoItem {
   @@map("carrito_items")
   @@index([userId])
   @@index([productoId])
+  @@index([creadoEl])
 }
 
 // Modelo de Favoritos

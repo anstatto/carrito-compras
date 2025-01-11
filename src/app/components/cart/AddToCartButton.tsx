@@ -1,12 +1,10 @@
 'use client'
 
-import { useCart } from '@/app/context/CartContext'
 import { useNotification } from '@/app/hooks/useNotification'
 import { FaShoppingCart, FaCheck } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { MarcaProducto } from '@prisma/client'
-import { useQueryClient } from '@tanstack/react-query'
 
 interface Product {
   id: string
@@ -21,111 +19,85 @@ interface Product {
   }
 }
 
-declare global {
-  interface Window {
-    __loggedProducts?: string[]
-  }
+interface CartItem {
+  id: string
+  nombre: string
+  precio: number
+  imagen: string
+  marca: MarcaProducto
+  cantidad: number
+  existencias: number
 }
+
 export default function AddToCartButton({ product }: { product: Product }) {
-  const { items } = useCart()
-  const { showError } = useNotification()
+  const { showError, showSuccess } = useNotification()
   const [isAdding, setIsAdding] = useState(false)
-  const queryClient = useQueryClient()
 
-  const itemInCart = useMemo(() =>
-    items.find(item => item.productoId === product.id),
-    [items, product.id]
-  )
-  
-  const currentQuantity = useMemo(() => 
-    itemInCart?.cantidad || 0,
-    [itemInCart]
-  )
-
-  const existencias = useMemo(() => 
-    typeof product.existencias === 'number' ? product.existencias : 0,
-    [product.existencias]
-  )
-  
-  const isOutOfStock = useMemo(() => 
-    existencias <= 0,
-    [existencias]
-  )
-
-  const buttonClassName = useMemo(() => `
-    group relative flex items-center justify-center gap-2 
-    px-6 py-3 rounded-full font-medium w-full
-    transition-all duration-300 ease-in-out
-    ${isAdding ? 'bg-green-500' : isOutOfStock ? 'bg-gray-400' : 'bg-pink-500 hover:bg-pink-600'}
-    text-white shadow-lg hover:shadow-pink-500/25
-    disabled:cursor-not-allowed disabled:opacity-60
-    transform active:scale-95
-  `, [isAdding, isOutOfStock])
-
-  if (process.env.NODE_ENV === 'development' && !window.__loggedProducts?.includes(product.id)) {
-    // console.log('Product data:', {
-    //   id: product.id,
-    //   existencias: product.existencias,
-    //   tipo: typeof product.existencias,
-    //   producto_completo: product
-    // })
-    window.__loggedProducts = [...(window.__loggedProducts || []), product.id]
-  }
-  
-  const handleAddToCart = async () => {
+  const handleAddToCart = () => {
     if (isAdding) return
 
     try {
       setIsAdding(true)
-      
-      if (existencias <= 0) {
+
+      if (product.existencias <= 0) {
         throw new Error('Producto sin stock disponible')
       }
 
-      if (currentQuantity >= existencias) {
-        throw new Error(`Solo quedan ${existencias} unidades disponibles`)
-      }
-
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000)
-
-      const response = await fetch('/api/cart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productoId: product.id,
-          cantidad: 1
-        }),
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
+      // Obtener el carrito actual del localStorage
+      const currentCart = JSON.parse(localStorage.getItem('cart') || '[]') as CartItem[]
       
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data?.error || 'Error al agregar al carrito')
+      // Buscar si el producto ya existe en el carrito
+      const existingItemIndex = currentCart.findIndex(item => item.id === product.id)
+      
+      if (existingItemIndex >= 0) {
+        // Si existe, incrementar la cantidad
+        const newQuantity = currentCart[existingItemIndex].cantidad + 1
+        if (newQuantity > product.existencias) {
+          throw new Error('Stock insuficiente')
+        }
+        currentCart[existingItemIndex].cantidad = newQuantity
+      } else {
+        // Si no existe, agregar nuevo item
+        currentCart.push({
+          id: product.id,
+          nombre: product.nombre,
+          precio: product.precio,
+          imagen: product.imagen,
+          marca: product.marca,
+          cantidad: 1,
+          existencias: product.existencias
+        })
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['cart'] })
-    } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        showError('La operación tardó demasiado tiempo')
-      } else {
-        showError(error instanceof Error ? error.message : 'Error al agregar al carrito')
-      }
+      // Guardar el carrito actualizado
+      localStorage.setItem('cart', JSON.stringify(currentCart))
+      
+      showSuccess('Producto agregado al carrito')
+      
+      // Disparar un evento personalizado para notificar cambios en el carrito
+      window.dispatchEvent(new Event('cartUpdated'))
+      
+    } catch (error) {
+      console.error('Error adding product to cart:', error)
+      showError(error instanceof Error ? error.message : 'Error al agregar al carrito')
     } finally {
-      setIsAdding(false)
+      setTimeout(() => {
+        setIsAdding(false)
+      }, 1000)
     }
   }
 
   return (
     <motion.button 
       onClick={handleAddToCart}
-      disabled={Boolean(isAdding || isOutOfStock)}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.95 }}
-      className={buttonClassName}
-      aria-label={isOutOfStock ? 'Sin stock' : 'Agregar al carrito'}
+      disabled={Boolean(isAdding || product.existencias <= 0)}
+      className="group relative flex items-center justify-center gap-2 
+      px-6 py-3 rounded-full font-medium w-full
+      transition-all duration-300 ease-in-out
+      bg-pink-500 hover:bg-pink-600 text-white shadow-lg hover:shadow-pink-500/25
+      disabled:cursor-not-allowed disabled:opacity-60
+      transform active:scale-95"
+      aria-label={product.existencias <= 0 ? 'Sin stock' : 'Agregar al carrito'}
     >
       <AnimatePresence mode="wait">
         {isAdding ? (
@@ -139,7 +111,7 @@ export default function AddToCartButton({ product }: { product: Product }) {
             <FaCheck className="w-4 h-4" />
             <span>¡Agregado!</span>
           </motion.div>
-        ) : isOutOfStock ? (
+        ) : product.existencias <= 0 ? (
           <motion.div
             key="outofstock"
             initial={{ opacity: 0, scale: 0.5 }}
@@ -158,16 +130,10 @@ export default function AddToCartButton({ product }: { product: Product }) {
             className="flex items-center gap-2"
           >
             <FaShoppingCart className="w-4 h-4" />
-            <span>
-              {currentQuantity > 0 ? `Agregar (${currentQuantity})` : 'Agregar al carrito'}
-            </span>
+            <span>Agregar al carrito</span>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <span className="absolute inset-0 h-full w-full rounded-full overflow-hidden">
-        <span className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity" />
-      </span>
     </motion.button>
   )
 } 

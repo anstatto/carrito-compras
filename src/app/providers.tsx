@@ -1,7 +1,6 @@
 'use client'
 
 import { SessionProvider } from 'next-auth/react'
-import { CartProvider } from './context/CartContext'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'react-hot-toast'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -50,7 +49,7 @@ export function Providers({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <CartProvider>
+
             {children}
             <Toaster
               position="top-right"
@@ -75,9 +74,8 @@ export function Providers({
                 },
               }}
             />
-          </CartProvider>
         </ThemeProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
+        <ReactQueryDevtools initialIsOpen={true} />
       </QueryClientProvider>
     </SessionProvider>
   )
