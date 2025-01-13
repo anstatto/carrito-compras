@@ -101,6 +101,13 @@ export default function Header() {
               <FaUser className="w-4 h-4 text-pink-500" />
               <span>Mi Perfil</span>
             </Link>
+            <Link
+              href="/perfil/pedidos"
+              className="flex items-center space-x-2 px-4 py-2 text-sm hover:bg-pink-50 dark:hover:bg-gray-700"
+            >
+              <FaShoppingBag className="w-4 h-4 text-pink-500" />
+              <span>Mis Pedidos</span>
+            </Link>
             <button
               onClick={handleSignOut}
               className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -150,7 +157,7 @@ export default function Header() {
       <div className="container mx-auto px-4">
         <nav className="flex items-center justify-between h-20">
           {/* Logo y Menú Móvil */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <motion.button 
               whileTap={{ scale: 0.95 }}
               className="md:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
@@ -165,7 +172,7 @@ export default function Header() {
                   exit={{ rotate: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {isMenuOpen ? <FaTimes className="h-6 w-6" /> : <FaBars className="h-6 w-6" />}
+                  {isMenuOpen ? <FaTimes className="h-5 w-5" /> : <FaBars className="h-5 w-5" />}
                 </motion.div>
               </AnimatePresence>
             </motion.button>
@@ -174,9 +181,10 @@ export default function Header() {
               <Image
                 src="/logo/logo.png"
                 alt="Arlin Glow Care"
-                width={100}
-                height={40}
-                style={{ width: 'auto', height: '40px' }}
+                width={80}
+                height={32}
+                className="h-8 w-auto sm:h-10"
+                style={{ width: 'auto' }}
                 priority
               />
             </Link>
@@ -197,13 +205,16 @@ export default function Header() {
           </div>
 
           {/* Iconos y Acciones */}
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             {/* Botón de Admin */}
-            {renderAdminButton()}
+            <div className="hidden md:block">
+              {renderAdminButton()}
+            </div>
 
             <Link
               href="/favoritos"
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors relative group"
+              aria-label="Favoritos"
             >
               <FaHeart className="w-5 h-5 group-hover:text-pink-500" />
               {!loadingFavorites && favorites.length > 0 && (
@@ -213,12 +224,25 @@ export default function Header() {
               )}
             </Link>
 
-            {renderUserMenu()}
+            <div className="hidden sm:block">
+              {renderUserMenu()}
+            </div>
+            <div className="sm:hidden">
+              <Link
+                href="/login"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+                aria-label="Cuenta de usuario"
+              >
+                <FaUser className="w-5 h-5" />
+              </Link>
+            </div>
 
-            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+            <div className="hidden sm:block h-6 w-px bg-gray-200 dark:bg-gray-700" />
             
-            <ThemeToggle />
-            <CartDropdown />
+            <div className="flex items-center space-x-2">
+              <ThemeToggle />
+              <CartDropdown />
+            </div>
           </div>
         </nav>
       </div>
@@ -234,12 +258,11 @@ export default function Header() {
             className="md:hidden border-t border-gray-200 dark:border-gray-700"
           >
             <div className="container mx-auto px-4 py-4">
-              <div className="flex flex-col space-y-4">
-                {/* Agregar botón de admin en menú móvil si es admin */}
+              <div className="flex flex-col space-y-3">
                 {session?.user?.role === 'ADMIN' && (
                   <Link
                     href="/admin/dashboard"
-                    className="flex items-center space-x-2 text-white bg-pink-500 hover:bg-pink-600 p-2 rounded-lg transition-colors"
+                    className="flex items-center space-x-2 text-white bg-pink-500 hover:bg-pink-600 p-3 rounded-lg transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     <FaShoppingBag className="w-4 h-4" />
@@ -250,12 +273,31 @@ export default function Header() {
                   <Link
                     key={href}
                     href={href}
-                    className="flex items-center space-x-2 text-gray-700 dark:text-gray-200 hover:text-pink-500 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                    className="flex items-center space-x-2 text-gray-700 dark:text-gray-200 hover:text-pink-500 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     <span>{label}</span>
                   </Link>
                 ))}
+                {session?.user && (
+                  <>
+                    <Link
+                      href="/perfil"
+                      className="flex items-center space-x-2 text-gray-700 dark:text-gray-200 hover:text-pink-500 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <FaUser className="w-4 h-4" />
+                      <span>Mi Perfil</span>
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center space-x-2 text-red-600 p-3 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 w-full"
+                    >
+                      <FaTimes className="w-4 h-4" />
+                      <span>Cerrar sesión</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

@@ -9,7 +9,12 @@ export const useProducts = () => {
   const fetchProducts = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/products?admin=true')
+      const response = await fetch(`/api/products?admin=true&t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      })
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Error al cargar productos')
@@ -29,7 +34,8 @@ export const useProducts = () => {
       const response = await fetch(`/api/products/${id}`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
         },
         body: JSON.stringify(data)
       })
@@ -44,11 +50,7 @@ export const useProducts = () => {
         throw new Error(result.error || 'Error al actualizar producto')
       }
 
-      setProducts(prevProducts => 
-        prevProducts.map(product => 
-          product.id === id ? result.data : product
-        )
-      )
+      await fetchProducts()
 
       return result.data
     } catch (error) {

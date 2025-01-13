@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FaCheckCircle } from 'react-icons/fa'
-import React from 'react'
+import { toast } from 'react-hot-toast'
 
 export default function CheckoutSuccessPage() {
   const router = useRouter()
@@ -12,10 +12,15 @@ export default function CheckoutSuccessPage() {
 
   useEffect(() => {
     if (paymentIntent) {
-      // Limpiar el carrito
-      localStorage.removeItem('cart')
-      // Disparar evento para actualizar el carrito en otros componentes
-      window.dispatchEvent(new Event('cartUpdated'))
+      try {
+        // Limpiar el carrito
+        localStorage.removeItem('cart')
+        window.dispatchEvent(new Event('cartUpdated'))
+        
+        toast.success('¡Gracias por tu compra! Te hemos enviado un correo de confirmación.')
+      } catch (error) {
+        console.error('Error al limpiar el carrito:', error)
+      }
     }
   }, [paymentIntent])
 
@@ -25,6 +30,8 @@ export default function CheckoutSuccessPage() {
       <h1 className="text-3xl font-bold mb-4">¡Gracias por tu compra!</h1>
       <p className="text-gray-600 mb-8">
         Tu pedido ha sido confirmado y está siendo procesado.
+        <br />
+        Te hemos enviado un correo con los detalles de tu compra.
       </p>
       <div className="space-x-4">
         <button

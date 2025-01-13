@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import OrdersLoading from './loading'
+import PrintOrder from './_components/PrintOrder'
 
 interface Order {
   id: string
@@ -20,6 +21,15 @@ interface Order {
   estado: 'PENDIENTE' | 'PAGADO' | 'PREPARANDO' | 'ENVIADO' | 'ENTREGADO' | 'CANCELADO'
   metodoPago: string
   creadoEl: string
+  items: Array<{
+    cantidad: number
+    precioUnit: number
+    subtotal: number
+    producto: {
+      nombre: string
+      imagenes: Array<{ url: string }>
+    }
+  }>
 }
 
 const getStatusColor = (status: Order['estado']): string => {
@@ -78,6 +88,7 @@ const OrderRow = memo(({
       </td>
       <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm font-medium">
         <div className="flex items-center gap-2 md:gap-3">
+          <PrintOrder order={order} />
           <button
             onClick={() => onUpdateStatus(order.id, 'PREPARANDO')}
             className="text-blue-600 hover:text-blue-900 transition-colors duration-200"
@@ -189,15 +200,32 @@ export default function OrdersPage() {
 
       <SearchBar value={searchTerm} onChange={setSearchTerm} />
       
-      <AnimatePresence>
-        {filteredOrders.map(order => (
-          <OrderRow 
-            key={order.id} 
-            order={order} 
-            onUpdateStatus={updateOrderStatus}
-          />
-        ))}
-      </AnimatePresence>
+      <div className="mt-6 overflow-x-auto">
+        <table className="min-w-full">
+          <thead>
+            <tr className="bg-gray-50">
+              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Número</th>
+              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Cliente</th>
+              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Método Pago</th>
+              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Fecha</th>
+              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <AnimatePresence>
+              {filteredOrders.map(order => (
+                <OrderRow 
+                  key={order.id} 
+                  order={order} 
+                  onUpdateStatus={updateOrderStatus}
+                />
+              ))}
+            </AnimatePresence>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

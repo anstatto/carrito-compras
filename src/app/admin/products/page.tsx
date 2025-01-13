@@ -10,7 +10,7 @@ import OptimizedImage from '@/components/OptimizedImage'
 import { useProducts } from '@/hooks/useProducts'
 import { toast } from 'react-hot-toast'
 import Pagination from '@/components/ui/Pagination'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 export default function ProductsPage() {
   const { products, isLoading, fetchProducts, updateProduct, setProducts } = useProducts()
@@ -21,6 +21,7 @@ export default function ProductsPage() {
   const [sortField, setSortField] = useState<'nombre' | 'precio' | 'existencias'>('nombre')
 
   const router = useRouter()
+  const pathname = usePathname()
 
   const sortProducts = (products: Product[]) => {
     const numericSort = (a: number, b: number) => sortOrder === 'asc' ? a - b : b - a
@@ -121,12 +122,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     const handleFocus = () => {
-      const lastUpdate = localStorage.getItem('lastProductsUpdate')
-      const now = Date.now()
-      if (!lastUpdate || now - parseInt(lastUpdate) > 5 * 60 * 1000) {
-        fetchProducts()
-        localStorage.setItem('lastProductsUpdate', now.toString())
-      }
+      fetchProducts()
     }
 
     window.addEventListener('focus', handleFocus)
@@ -151,6 +147,10 @@ export default function ProductsPage() {
       window.removeEventListener('focus', handleFocus)
     }
   }, [fetchProducts])
+
+  useEffect(() => {
+    fetchProducts()
+  }, [pathname, fetchProducts])
 
   const handleSort = (field: typeof sortField) => {
     if (field === sortField) {

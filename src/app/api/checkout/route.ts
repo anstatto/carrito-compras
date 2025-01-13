@@ -1,138 +1,179 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
-import { authOptions } from "@/lib/auth";
+import { randomUUID } from 'crypto';
+
+interface CheckoutItem {
+  id: string;
+  cantidad: number;
+  precio: number;
+}
+
+interface CheckoutBody {
+  items: CheckoutItem[];
+  direccionId: string;
+  total: number;
+}
+
+// Monto mínimo en DOP (50 pesos dominicanos)
+const MIN_AMOUNT_DOP = 50;
+
+// Agregar timeout para pedidos pendientes (15 minutos)
+const PENDING_ORDER_TIMEOUT = 15 * 60 * 1000;
 
 export async function POST(req: Request) {
   try {
+    // 1. Verificar autenticación
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { items, direccionId, metodoPagoId } = body;
+    // 2. Validar datos de entrada
+    const body = await req.json() as CheckoutBody;
+    if (!body.items?.length || !body.direccionId || !body.total) {
+      return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
+    }
 
-    // Validar dirección
-    const direccion = await prisma.direccion.findUnique({
-      where: {
-        id: direccionId,
-        userId: session.user.id,
-      },
-    });
-
-    if (!direccion) {
+    // Validar monto mínimo
+    if (body.total < MIN_AMOUNT_DOP) {
       return NextResponse.json(
-        { error: "Dirección no válida" },
+        { error: `El monto mínimo de compra es RD$${MIN_AMOUNT_DOP}.00` },
         { status: 400 }
       );
     }
 
-    // Validar método de pago
-    const metodoPago = metodoPagoId ? await prisma.metodoPago.findUnique({
-      where: {
-        id: metodoPagoId,
-        userId: session.user.id,
-      },
-    }) : null;
-
-    // Calcular totales
-    let subtotal = 0;
-    const itemsData = await Promise.all(
-      items.map(async (item: { productoId: string; cantidad: number }) => {
-        const producto = await prisma.producto.findUnique({
-          where: { id: item.productoId },
-        });
-
-        if (!producto || !producto.activo) {
-          throw new Error(`Producto no disponible: ${item.productoId}`);
-        }
-
-        if (producto.existencias < item.cantidad) {
-          throw new Error(
-            `Stock insuficiente para: ${producto.nombre}`
-          );
-        }
-
-        const precioFinal = producto.enOferta && producto.precioOferta
-          ? producto.precioOferta
-          : producto.precio;
-
-        const itemSubtotal = Number(precioFinal) * item.cantidad;
-        subtotal += itemSubtotal;
-
-        return {
-          productoId: item.productoId,
-          cantidad: item.cantidad,
-          precioUnit: precioFinal,
-          subtotal: itemSubtotal,
-        };
-      })
-    );
-
-    // Calcular impuestos y envío
-    const impuestos = subtotal * 0.16; // 16% IVA
-    const costoEnvio = subtotal > 999 ? 0 : 99; // Envío gratis en compras mayores a $999
-    const total = subtotal + impuestos + costoEnvio;
-
-    // Crear PaymentIntent con Stripe
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(total * 100),
-      currency: "mxn",
-      customer: session.user.stripeCustomerId || undefined,
-      payment_method: metodoPago?.stripePaymentMethodId || undefined,
-      metadata: {
-        userId: session.user.id,
-      },
-    });
-
-    // Crear pedido en la base de datos
-    const pedido = await prisma.pedido.create({
-      data: {
-        numero: `PED-${Date.now()}`,
-        clienteId: session.user.id,
-        direccionId,
-        metodoPagoId,
-        subtotal,
-        impuestos,
-        costoEnvio,
-        total,
-        estado: "PENDIENTE",
-        estadoPago: "PROCESANDO",
-        stripePaymentIntentId: paymentIntent.id,
-        items: {
-          create: itemsData,
-        },
-      },
-      include: {
-        items: true,
-      },
-    });
-
-    // Actualizar inventario
-    await Promise.all(
-      itemsData.map((item) =>
-        prisma.producto.update({
-          where: { id: item.productoId },
-          data: {
-            existencias: {
-              decrement: item.cantidad,
-            },
-          },
+    // 3. Verificar existencias
+    const productos = await Promise.all(
+      body.items.map(item =>
+        prisma.producto.findUnique({
+          where: { id: item.id },
+          select: { id: true, existencias: true, nombre: true }
         })
       )
     );
 
-    return NextResponse.json({
-      pedidoId: pedido.id,
-      clientSecret: paymentIntent.client_secret,
+    const stockInsuficiente = productos.find((producto, index) => {
+      if (!producto) return true;
+      return producto.existencias < body.items[index].cantidad;
     });
-  } catch (error: unknown) {
-    console.error("Error en checkout:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error al procesar el pedido" },
-      { status: 500 }
+
+    if (stockInsuficiente) {
+      return NextResponse.json(
+        { error: 'Stock insuficiente para algunos productos' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar y limpiar pedidos pendientes antiguos
+    const pendingOrder = await prisma.pedido.findFirst({
+      where: {
+        clienteId: session.user.id,
+        estado: 'PENDIENTE',
+        estadoPago: 'PENDIENTE',
+        creadoEl: {
+          // Solo considerar pedidos pendientes de los últimos 15 minutos
+          gte: new Date(Date.now() - PENDING_ORDER_TIMEOUT)
+        }
+      }
+    });
+
+    if (pendingOrder) {
+      return NextResponse.json(
+        { 
+          error: 'Ya tienes un pedido pendiente en proceso',
+          orderId: pendingOrder.id 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Limpiar pedidos antiguos pendientes
+    await prisma.pedido.updateMany({
+      where: {
+        clienteId: session.user.id,
+        estado: 'PENDIENTE',
+        estadoPago: 'PENDIENTE',
+        creadoEl: {
+          lt: new Date(Date.now() - PENDING_ORDER_TIMEOUT)
+        }
+      },
+      data: {
+        estado: 'CANCELADO',
+        estadoPago: 'FALLIDO'
+      }
+    });
+
+    // 4. Crear el pedido
+    const order = await prisma.pedido.create({
+      data: {
+        numero: `ORD-${randomUUID().slice(0, 8)}`,
+        clienteId: session.user.id,
+        direccionId: body.direccionId,
+        subtotal: body.total,
+        impuestos: 0,
+        costoEnvio: 0,
+        total: body.total,
+        estado: 'PENDIENTE',
+        estadoPago: 'PENDIENTE',
+        items: {
+          create: body.items.map(item => ({
+            productoId: item.id,
+            cantidad: item.cantidad,
+            precioUnit: item.precio,
+            subtotal: item.precio * item.cantidad
+          }))
+        }
+      }
+    });
+
+    // 5. Actualizar inventario
+    await Promise.all(
+      body.items.map(item =>
+        prisma.producto.update({
+          where: { id: item.id },
+          data: {
+            existencias: {
+              decrement: item.cantidad
+            }
+          }
+        })
+      )
     );
+
+    // Crear PaymentIntent en Stripe con monto mínimo ajustado
+    const stripeAmount = Math.round(body.total * 100);
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: stripeAmount,
+      currency: 'dop',
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      metadata: {
+        orderId: order.id,
+        userId: session.user.id
+      }
+    });
+
+    // 7. Actualizar pedido con ID de PaymentIntent
+    await prisma.pedido.update({
+      where: { id: order.id },
+      data: {
+        stripePaymentIntentId: paymentIntent.id
+      }
+    });
+
+    return NextResponse.json({ 
+      clientSecret: paymentIntent.client_secret,
+      orderId: order.id
+    });
+
+  } catch (error) {
+    console.error('Error en checkout:', error);
+    const message = error instanceof Error ? error.message : 'Error al procesar el pedido';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

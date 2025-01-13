@@ -4,14 +4,13 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from '@/lib/auth'
 
 interface Params {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }>
 }
 
 export async function GET(request: Request, { params }: Params) {
   try {
     const session = await getServerSession(authOptions)
+    const resolvedParams = await params
     
     if (!session?.user) {
       return NextResponse.json(
@@ -21,7 +20,7 @@ export async function GET(request: Request, { params }: Params) {
     }
 
     const pedido = await prisma.pedido.findUnique({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       include: {
         cliente: {
           select: {
@@ -31,7 +30,12 @@ export async function GET(request: Request, { params }: Params) {
         },
         items: {
           include: {
-            producto: true
+            producto: {
+              select: {
+                nombre: true,
+                imagenes: true
+              }
+            }
           }
         }
       }
@@ -65,6 +69,7 @@ export async function GET(request: Request, { params }: Params) {
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const session = await getServerSession(authOptions)
+    const resolvedParams = await params
     
     if (!session?.user) {
       return NextResponse.json(
@@ -85,7 +90,7 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     const pedido = await prisma.pedido.update({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       data: { 
         estado,
         actualizadoEl: new Date()

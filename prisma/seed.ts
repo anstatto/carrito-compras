@@ -1,4 +1,4 @@
-import { PrismaClient, TipoPago, MarcaTarjeta, MarcaProducto, Role } from '@prisma/client'
+import { PrismaClient, TipoPago, MarcaTarjeta, MarcaProducto, Role, ProvinciaRD, AgenciaEnvio } from '@prisma/client'
 import { hash } from 'bcrypt'
 
 const prisma = new PrismaClient()
@@ -101,7 +101,8 @@ const USUARIOS = [
     email: 'admin@cosmeticos.com',
     password: 'admin123',
     role: Role.ADMIN,
-    telefono: '1234567890'
+    telefono: '1234567890',
+    activo: true
   },
   {
     nombre: 'Angel Steven',
@@ -109,7 +110,36 @@ const USUARIOS = [
     email: 'angeltatistorres@gmail.com',
     password: 'admin1234',
     role: Role.ADMIN,
-    telefono: '9876543210'
+    telefono: '9876543210',
+    activo: true
+  }
+] as const;
+
+// Direcciones de ejemplo
+const DIRECCIONES = [
+  {
+    calle: 'Calle Principal',
+    numero: '123',
+    sector: 'Los Jardines',
+    municipio: 'Santiago de los Caballeros',
+    provincia: ProvinciaRD.SANTIAGO,
+    telefono: '8091234567',
+    celular: '8291234567',
+    agenciaEnvio: AgenciaEnvio.CARIBE_EXPRESS,
+    sucursalAgencia: 'Sucursal Central',
+    predeterminada: true,
+    referencia: 'Cerca del parque central'
+  },
+  {
+    calle: 'Avenida Duarte',
+    numero: '456',
+    sector: 'Ensanche Naco',
+    municipio: 'Santo Domingo',
+    provincia: ProvinciaRD.DISTRITO_NACIONAL,
+    telefono: '8092345678',
+    agenciaEnvio: AgenciaEnvio.VIMENPAQ,
+    sucursalAgencia: 'Sucursal Naco',
+    predeterminada: false
   }
 ] as const;
 
@@ -230,6 +260,19 @@ async function crearMetodosPago(userId: string) {
   );
 }
 
+async function crearDirecciones(userId: string) {
+  return Promise.all(
+    DIRECCIONES.map(direccion =>
+      prisma.direccion.create({
+        data: {
+          ...direccion,
+          userId
+        }
+      })
+    )
+  );
+}
+
 // Función principal
 async function main() {
   try {
@@ -239,6 +282,9 @@ async function main() {
     console.log('👥 Creando usuarios...');
     const usuarios = await crearUsuarios();
     const adminId = usuarios[0].id;
+
+    console.log('📍 Creando direcciones...');
+    await crearDirecciones(adminId);
 
     console.log('📁 Creando categorías...');
     const categorias = await crearCategorias();

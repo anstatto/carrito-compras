@@ -21,12 +21,10 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": [
-      "@stripe/stripe-js",
-      "@stripe/react-stripe-js"
-    ],
+    "types": [],
     "typeRoots": ["node_modules/@types", "src/types"]
+    
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "prisma/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "prisma/**/*.ts", "src/types/**/*.d.ts"],
   "exclude": ["node_modules"]
 }

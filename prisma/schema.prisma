@@ -210,26 +210,78 @@ model Favorito {
   @@index([productoId])
 }
 
+// Enum para provincias de RD
+enum ProvinciaRD {
+  AZUA
+  BAHORUCO
+  BARAHONA
+  DAJABON
+  DISTRITO_NACIONAL
+  DUARTE
+  EL_SEIBO
+  ELIAS_PINA
+  ESPAILLAT
+  HATO_MAYOR
+  HERMANAS_MIRABAL
+  INDEPENDENCIA
+  LA_ALTAGRACIA
+  LA_ROMANA
+  LA_VEGA
+  MARIA_TRINIDAD_SANCHEZ
+  MONSENOR_NOUEL
+  MONTE_CRISTI
+  MONTE_PLATA
+  PEDERNALES
+  PERAVIA
+  PUERTO_PLATA
+  SAMANA
+  SAN_CRISTOBAL
+  SAN_JOSE_DE_OCOA
+  SAN_JUAN
+  SAN_PEDRO_DE_MACORIS
+  SANCHEZ_RAMIREZ
+  SANTIAGO
+  SANTIAGO_RODRIGUEZ
+  SANTO_DOMINGO
+  VALVERDE
+}
+
+// Enum para agencias de envío en RD
+enum AgenciaEnvio {
+  VIMENPAQ
+  CARIBE_EXPRESS
+  CARIBE_TOURS
+  DOMINICANA_CARGO
+  ENVIOS_BOYCA
+  PACK_EXPRESS
+  SERVI_CARGO
+  OTRO
+}
+
 // Modelo de Direcciones
 model Direccion {
-  id            String    @id @default(cuid())
-  userId        String
-  user          User      @relation(fields: [userId], references: [id])
-  calle         String
-  numeroExt     String
-  numeroInt     String?
-  colonia       String
-  ciudad        String
-  estado        String
-  codigoPostal  String
-  telefono      String
-  predeterminada Boolean  @default(false)
-  pedidos       Pedido[]
-  creadoEl      DateTime  @default(now()) @map("creado_el")
-  actualizadoEl DateTime  @updatedAt @map("actualizado_el")
+  id              String      @id @default(cuid())
+  userId          String      @map("user_id")
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calle           String      @db.VarChar(100)
+  numero          String      @map("numero") @db.VarChar(20)
+  sector          String      @db.VarChar(100)
+  provincia       ProvinciaRD
+  municipio       String      @db.VarChar(100)
+  codigoPostal    String?     @map("codigo_postal") @db.VarChar(10)
+  referencia      String?     @db.VarChar(200)
+  telefono        String      @db.VarChar(20)
+  celular         String?     @db.VarChar(20)
+  agenciaEnvio    AgenciaEnvio?  @map("agencia_envio")
+  sucursalAgencia String?     @map("sucursal_agencia") @db.VarChar(100)
+  predeterminada  Boolean     @default(false)
+  pedidos         Pedido[]
+  creadoEl        DateTime    @default(now()) @map("creado_el")
+  actualizadoEl   DateTime    @updatedAt @map("actualizado_el")
 
   @@map("direcciones")
   @@index([userId])
+  @@index([predeterminada])
 }
 
 // Modelo de Métodos de Pago

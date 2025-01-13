@@ -59,6 +59,16 @@ export async function GET(request: Request) {
           select: {
             tipo: true
           }
+        },
+        items: {
+          include: {
+            producto: {
+              select: {
+                nombre: true,
+                imagenes: true
+              }
+            }
+          }
         }
       },
       orderBy: {
