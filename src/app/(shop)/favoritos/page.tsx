@@ -15,6 +15,7 @@ interface Favorito {
     precio: number
     imagenes: { url: string; alt: string | null }[]
     slug: string
+    existencias: number
   }
 }
 
@@ -74,12 +75,12 @@ export default function FavoritosPage() {
                   nombre: '',
                   slug: ''
                 },
-                existencias: 0
-              }} 
+                existencias: fav.producto.existencias,
+              }}
             />
           ))}
         </motion.div>
       )}
     </div>
   )
-} 
+}

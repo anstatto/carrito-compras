@@ -45,6 +45,7 @@ export interface ProductView {
   precio: number
   precioOferta: number | null
   enOferta: boolean
+  destacado: boolean
   marca: MarcaProducto
   imagenes: {
     url: string

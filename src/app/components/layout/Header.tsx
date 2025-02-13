@@ -1,74 +1,81 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import Image from 'next/image'
-import { useState, useEffect, useCallback } from 'react'
-import { useSession, signOut } from 'next-auth/react'
-import { FaUser, FaHeart, FaBars, FaTimes, FaShoppingBag } from 'react-icons/fa'
-import CartDropdown from '../cart/CartDropdown'
-import ThemeToggle from '../ui/ThemeToggle'
-import { motion, AnimatePresence } from 'framer-motion'
-import { usePathname } from 'next/navigation'
-import { useFavorites } from '@/app/hooks/useFavorites'
+import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+import { useSession, signOut } from "next-auth/react";
+import {
+  FaUser,
+  FaHeart,
+  FaBars,
+  FaTimes,
+  FaShoppingBag,
+} from "react-icons/fa";
+import CartDropdown from "../cart/CartDropdown";
+import ThemeToggle from "../ui/ThemeToggle";
+import { motion, AnimatePresence } from "framer-motion";
+import { usePathname } from "next/navigation";
+import { useFavorites } from "@/app/hooks/useFavorites";
+import Logo from "./Logo";
 
 export default function Header() {
-  const { data: session, status } = useSession()
-  const pathname = usePathname()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
-  const { favorites, isLoading: loadingFavorites } = useFavorites()
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const { favorites, isLoading: loadingFavorites } = useFavorites();
 
   // Memoizar el handler del scroll
   const handleScroll = useCallback(() => {
-    setScrolled(window.scrollY > 20)
-  }, [])
+    setScrolled(window.scrollY > 20);
+  }, []);
 
   useEffect(() => {
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [handleScroll])
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
 
   // Cerrar menú al cambiar de ruta
   useEffect(() => {
-    setIsMenuOpen(false)
-  }, [pathname])
+    setIsMenuOpen(false);
+  }, [pathname]);
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/' })
-  }
+    await signOut({ callbackUrl: "/" });
+  };
 
   const navigationItems = [
-    { href: '/catalogo', label: 'Catálogo' },
-    { href: '/categorias', label: 'Categorías' },
-    { href: '/ofertas', label: 'Ofertas' },
-    { href: '/nosotros', label: 'Nosotros' }
-  ]
+    { href: "/", label: "Inicio" },
+    { href: "/catalogo", label: "Catálogo" },
+    { href: "/categorias", label: "Categorías" },
+    { href: "/ofertas", label: "Ofertas" },
+    { href: "/nosotros", label: "Nosotros" },
+  ];
 
   const dropdownVariants = {
     hidden: { opacity: 0, y: -20 },
     visible: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -20 }
-  }
+    exit: { opacity: 0, y: -20 },
+  };
 
   const mobileMenuVariants = {
     hidden: { opacity: 0, height: 0 },
-    visible: { opacity: 1, height: 'auto' },
-    exit: { opacity: 0, height: 0 }
-  }
+    visible: { opacity: 1, height: "auto" },
+    exit: { opacity: 0, height: 0 },
+  };
 
   const renderUserMenu = () => {
-    if (status === 'loading') {
-      return <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
+    if (status === "loading") {
+      return <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />;
     }
 
     if (session?.user) {
-      const displayName = session.user.nombre 
-        ? `${session.user.nombre} ${session.user.apellido || ''}`
-        : session.user.email?.split('@')[0]
+      const displayName = session.user.nombre
+        ? `${session.user.nombre} ${session.user.apellido || ""}`
+        : session.user.email?.split("@")[0];
 
       return (
         <div className="relative group">
-          <motion.button 
+          <motion.button
             whileHover={{ scale: 1.05 }}
             className="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
           >
@@ -78,14 +85,14 @@ export default function Header() {
             </div>
           </motion.button>
 
-          <motion.div 
+          <motion.div
             className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200"
             initial="hidden"
             animate="visible"
             exit="exit"
             variants={dropdownVariants}
           >
-            {session.user.role === 'ADMIN' && (
+            {session.user.role === "ADMIN" && (
               <Link
                 href="/admin/dashboard"
                 className="flex items-center space-x-2 px-4 py-2 text-sm hover:bg-pink-50 dark:hover:bg-gray-700"
@@ -117,7 +124,7 @@ export default function Header() {
             </button>
           </motion.div>
         </div>
-      )
+      );
     }
 
     return (
@@ -130,11 +137,11 @@ export default function Header() {
           <span className="ml-2">Iniciar sesión</span>
         </div>
       </Link>
-    )
-  }
+    );
+  };
 
   const renderAdminButton = () => {
-    if (session?.user?.role === 'ADMIN') {
+    if (session?.user?.role === "ADMIN") {
       return (
         <Link
           href="/admin/dashboard"
@@ -143,51 +150,46 @@ export default function Header() {
           <FaShoppingBag className="w-4 h-4" />
           <span>Panel Admin</span>
         </Link>
-      )
+      );
     }
-    return null
-  }
+    return null;
+  };
 
   return (
-    <header className={`sticky top-0 z-50 transition-all duration-300 ${
-      scrolled 
-        ? 'bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg shadow-md' 
-        : 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm'
-    }`}>
+    <header
+      className={`sticky top-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg shadow-md"
+          : "bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm"
+      }`}
+    >
       <div className="container mx-auto px-4">
         <nav className="flex items-center justify-between h-20">
           {/* Logo y Menú Móvil */}
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <motion.button 
+            <motion.button
               whileTap={{ scale: 0.95 }}
               className="md:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+              aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
             >
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={isMenuOpen ? 'close' : 'open'}
+                  key={isMenuOpen ? "close" : "open"}
                   initial={{ rotate: 0 }}
                   animate={{ rotate: isMenuOpen ? 180 : 0 }}
                   exit={{ rotate: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {isMenuOpen ? <FaTimes className="h-5 w-5" /> : <FaBars className="h-5 w-5" />}
+                  {isMenuOpen ? (
+                    <FaTimes className="h-5 w-5" />
+                  ) : (
+                    <FaBars className="h-5 w-5" />
+                  )}
                 </motion.div>
               </AnimatePresence>
             </motion.button>
-            
-            <Link href="/" className="flex-shrink-0">
-              <Image
-                src="/logo/logo.png"
-                alt="Arlin Glow Care"
-                width={80}
-                height={32}
-                className="h-8 w-auto sm:h-10"
-                style={{ width: 'auto' }}
-                priority
-              />
-            </Link>
+            <Logo />
           </div>
 
           {/* Navegación Desktop */}
@@ -207,9 +209,7 @@ export default function Header() {
           {/* Iconos y Acciones */}
           <div className="flex items-center space-x-2 sm:space-x-4">
             {/* Botón de Admin */}
-            <div className="hidden md:block">
-              {renderAdminButton()}
-            </div>
+            <div className="hidden md:block">{renderAdminButton()}</div>
 
             <Link
               href="/favoritos"
@@ -224,9 +224,7 @@ export default function Header() {
               )}
             </Link>
 
-            <div className="hidden sm:block">
-              {renderUserMenu()}
-            </div>
+            <div className="hidden sm:block">{renderUserMenu()}</div>
             <div className="sm:hidden">
               <Link
                 href="/login"
@@ -238,7 +236,6 @@ export default function Header() {
             </div>
 
             <div className="hidden sm:block h-6 w-px bg-gray-200 dark:bg-gray-700" />
-            
             <div className="flex items-center space-x-2">
               <ThemeToggle />
               <CartDropdown />
@@ -259,7 +256,7 @@ export default function Header() {
           >
             <div className="container mx-auto px-4 py-4">
               <div className="flex flex-col space-y-3">
-                {session?.user?.role === 'ADMIN' && (
+                {session?.user?.role === "ADMIN" && (
                   <Link
                     href="/admin/dashboard"
                     className="flex items-center space-x-2 text-white bg-pink-500 hover:bg-pink-600 p-3 rounded-lg transition-colors"
@@ -304,5 +301,5 @@ export default function Header() {
         )}
       </AnimatePresence>
     </header>
-  )
+  );
 }

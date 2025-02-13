@@ -97,7 +97,7 @@ export default function AddToCartButton({ product }: { product: Product }) {
       bg-pink-500 hover:bg-pink-600 text-white shadow-lg hover:shadow-pink-500/25
       disabled:cursor-not-allowed disabled:opacity-60
       transform active:scale-95"
-      aria-label={product.existencias <= 0 ? 'Sin stock' : 'Agregar al carrito'}
+      aria-label={product.existencias <= 1 ? 'Sin stock' : 'Agregar al carrito'}
     >
       <AnimatePresence mode="wait">
         {isAdding ? (

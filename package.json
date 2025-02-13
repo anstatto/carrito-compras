@@ -22,6 +22,7 @@
     "@types/nodemailer": "^6.4.17",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
+    "carrito-compras": "file:",
     "date-fns": "^4.1.0",
     "framer-motion": "^11.16.0",
     "lodash": "^4.17.21",

@@ -64,6 +64,7 @@ async function getFeaturedProducts() {
       descripcion: product.descripcion,
       precio: Number(product.precio),
       precioOferta: product.precioOferta ? Number(product.precioOferta) : null,
+      destacado: product.destacado,
       enOferta: product.enOferta,
       imagenes: product.imagenes,
       slug: product.slug,

@@ -1,56 +1,57 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import ProductCard from '@/app/components/products/ProductCard'
-import { motion, AnimatePresence } from 'framer-motion'
-import { toast } from 'react-hot-toast'
-import { ProductView } from '@/interfaces/Product'
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "react-hot-toast";
+import { ProductView } from "@/interfaces/Product";
+import ProductCardOfert from "@/app/components/products/ProductCardOferta";
 
-type Product = ProductView
+type Product = ProductView;
 
 export default function OfertasPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/products?enOferta=true', {
-        cache: 'no-store',
-        next: { revalidate: 0 }
-      })
-      if (!res.ok) throw new Error('Error al cargar productos')
-      const data = await res.json()
-      setProducts(data)
+      const res = await fetch("/api/products?enOferta=true", {
+        cache: "no-store",
+        next: { revalidate: 0 },
+      });
+      console.log(res);
+      if (!res.ok) throw new Error("Error al cargar productos");
+      const data = await res.json();
+      setProducts(data);
     } catch (error) {
-      console.error('Error:', error)
-      toast.error('Error al cargar las ofertas')
+      console.error("Error:", error);
+      toast.error("Error al cargar las ofertas");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchProducts()
+    fetchProducts();
 
     // Actualizar cada 30 segundos
-    const interval = setInterval(fetchProducts, 30000)
+    const interval = setInterval(fetchProducts, 30000);
 
     // Actualizar cuando la página obtiene el foco
     const handleFocus = () => {
-      fetchProducts()
-    }
-    window.addEventListener('focus', handleFocus)
+      fetchProducts();
+    };
+    window.addEventListener("focus", handleFocus);
 
     return () => {
-      clearInterval(interval)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   return (
     <main className="container mx-auto px-4 py-8">
       {/* Header con animación */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col items-center mb-12 text-center"
@@ -59,7 +60,8 @@ export default function OfertasPage() {
           Ofertas Especiales
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl">
-          ¡No te pierdas nuestras increíbles ofertas! Productos de alta calidad a precios especiales.
+          ¡No te pierdas nuestras increíbles ofertas! Productos de alta calidad
+          a precios especiales.
         </p>
       </motion.div>
 
@@ -67,7 +69,10 @@ export default function OfertasPage() {
         // Skeleton loader
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse">
+            <div
+              key={i}
+              className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse"
+            >
               <div className="aspect-square bg-gray-200" />
               <div className="p-4 space-y-3">
                 <div className="h-4 bg-gray-200 rounded w-3/4" />
@@ -79,7 +84,7 @@ export default function OfertasPage() {
         </div>
       ) : products.length === 0 ? (
         // Mensaje cuando no hay ofertas
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-center py-12"
@@ -105,11 +110,10 @@ export default function OfertasPage() {
                 whileHover={{ y: -5 }}
                 className="transform transition-all duration-300"
               >
-                <ProductCard 
+                <ProductCardOfert
                   product={{
                     ...product,
-                    existencias: 0
-                  }} 
+                  }}
                 />
               </motion.div>
             ))}
@@ -125,10 +129,8 @@ export default function OfertasPage() {
                    bg-gradient-to-r from-pink-500 to-violet-500 text-white 
                    px-6 py-3 rounded-full shadow-lg z-50"
       >
-        <p className="text-sm font-medium">
-          🔥 Ofertas por tiempo limitado
-        </p>
+        <p className="text-sm font-medium">🔥 Ofertas por tiempo limitado</p>
       </motion.div>
     </main>
-  )
-} 
+  );
+}

@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { FaInstagram, FaWhatsapp, FaMapMarkerAlt, FaEnvelope, FaPhone, FaSpinner } from 'react-icons/fa'
 import { toast } from 'react-hot-toast'
+import FooterLogo from './FooterLogo'
 
 export default function Footer() {
   const [formData, setFormData] = useState({
@@ -51,18 +51,10 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Logo y Descripción */}
           <div className="space-y-4">
-            <Link href="/" className="block hover:opacity-80 transition-opacity">
-              <Image
-                src="/logo/logo.png"
-                alt="Arlin Glow Care"
-                width={120}
-                height={120}
-                className="mb-4"
-                priority
-              />
-            </Link>
+            <FooterLogo />
             <p className="text-gray-600 dark:text-gray-300 text-lg">
-              Tu destino de belleza y cuidado personal. Productos de alta calidad para realzar tu belleza natural.
+              Tu destino de belleza y cuidado personal. Productos de alta
+              calidad para realzar tu belleza natural.
             </p>
           </div>
 
@@ -72,16 +64,18 @@ export default function Footer() {
               Enlaces Rápidos
             </h3>
             <ul className="space-y-3">
-              {['Productos', 'Categorías', 'Ofertas', 'Sobre Nosotros'].map((item) => (
-                <li key={item}>
-                  <Link 
-                    href={`/${item.toLowerCase()}`}
-                    className="text-gray-600 dark:text-gray-300 hover:text-pink-500 dark:hover:text-pink-400 transition-colors text-lg"
-                  >
-                    {item}
-                  </Link>
-                </li>
-              ))}
+              {["Productos", "Categorías", "Ofertas", "Sobre Nosotros"].map(
+                (item) => (
+                  <li key={item}>
+                    <Link
+                      href={`/${item.toLowerCase()}`}
+                      className="text-gray-600 dark:text-gray-300 hover:text-pink-500 dark:hover:text-pink-400 transition-colors text-lg"
+                    >
+                      {item}
+                    </Link>
+                  </li>
+                )
+              )}
             </ul>
           </div>
 
@@ -97,13 +91,19 @@ export default function Footer() {
               </li>
               <li className="flex items-center space-x-3 text-gray-600 dark:text-gray-300">
                 <FaPhone className="text-pink-500 text-xl" />
-                <a href="tel:+18297828831" className="text-lg hover:text-pink-500 transition-colors">
+                <a
+                  href="tel:+18297828831"
+                  className="text-lg hover:text-pink-500 transition-colors"
+                >
                   +1 (829) 782-8831
                 </a>
               </li>
               <li className="flex items-center space-x-3 text-gray-600 dark:text-gray-300">
                 <FaEnvelope className="text-pink-500 text-xl" />
-                <a href="mailto:contacto@arlinglow.com" className="text-lg hover:text-pink-500 transition-colors">
+                <a
+                  href="mailto:contacto@arlinglow.com"
+                  className="text-lg hover:text-pink-500 transition-colors"
+                >
                   contacto@arlinglow.com
                 </a>
               </li>
@@ -166,7 +166,7 @@ export default function Footer() {
                     Enviando...
                   </>
                 ) : (
-                  'Enviar mensaje'
+                  "Enviar mensaje"
                 )}
               </button>
             </form>
@@ -176,8 +176,16 @@ export default function Footer() {
         {/* Redes Sociales */}
         <div className="flex justify-center space-x-8 mt-16 mb-8">
           {[
-            { icon: FaInstagram, href: 'https://instagram.com/arlinglow_', label: 'Instagram' },
-            { icon: FaWhatsapp, href: 'https://wa.me/8297828831', label: 'WhatsApp' }
+            {
+              icon: FaInstagram,
+              href: "https://instagram.com/arlinglow_",
+              label: "Instagram",
+            },
+            {
+              icon: FaWhatsapp,
+              href: "https://wa.me/8297828831",
+              label: "WhatsApp",
+            },
           ].map((social, index) => (
             <a
               key={index}
@@ -197,20 +205,23 @@ export default function Footer() {
       {/* Copyright */}
       <div className="border-t border-gray-200 dark:border-gray-700">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-center 
-                        text-gray-600 dark:text-gray-300 text-sm">
+          <div
+            className="flex flex-col md:flex-row justify-between items-center 
+                        text-gray-600 dark:text-gray-300 text-sm"
+          >
             <p className="text-center md:text-left">
-              © {new Date().getFullYear()} Arlin Glow Care. Todos los derechos reservados.
+              © {new Date().getFullYear()} Arlin Glow Care. Todos los derechos
+              reservados.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <Link 
-                href="/privacidad" 
+              <Link
+                href="/privacidad"
                 className="hover:text-pink-500 transition-colors underline-offset-4 hover:underline"
               >
                 Política de Privacidad
               </Link>
-              <Link 
-                href="/terminos" 
+              <Link
+                href="/terminos"
                 className="hover:text-pink-500 transition-colors underline-offset-4 hover:underline"
               >
                 Términos y Condiciones
@@ -220,5 +231,5 @@ export default function Footer() {
         </div>
       </div>
     </footer>
-  )
+  );
 }

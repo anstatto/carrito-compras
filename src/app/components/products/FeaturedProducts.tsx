@@ -50,7 +50,7 @@ export default function FeaturedProducts({ products }: FeaturedProductsProps) {
             <FaStar className="text-[#FF69B4] text-4xl animate-pulse hover:scale-110 transition-transform" />
           </div>
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-10 bg-gradient-to-r from-[#FF69B4] via-[#FF82AB] to-[#FF1493] text-transparent bg-clip-text leading-tight">
-            Descubre Nuestra Colección Premium
+            Descubre Nuestra Colección Destacada
             <span className="block text-2xl md:text-3xl mt-4 font-medium text-gray-600 dark:text-gray-300">
               Productos seleccionados por su excelencia y respaldados por la satisfacción de nuestros clientes
             </span>
