@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import ProductCard from '@/app/components/products/ProductCard'
 import type { Metadata } from 'next'
-import { ProductView } from '@/interfaces/Product'
+
 
 export const metadata: Metadata = {
   title: 'Catálogo - Arlin Glow Care',
@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 
 async function getCategoryWithProducts(slug: string) {
   const category = await prisma.categoria.findUnique({
-    where: { 
+    where: {
       slug,
-      activa: true 
+      activa: true
     },
     include: {
       productos: {
@@ -43,12 +43,13 @@ export default async function CategoryPage({ params }: { params: { slug: string 
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{category.nombre}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {category.nombre}
+          </h1>
           {category.descripcion && (
             <p className="text-gray-600">{category.descripcion}</p>
           )}
         </div>
-
       </div>
 
       {/* Grid de productos */}
@@ -61,29 +62,35 @@ export default async function CategoryPage({ params }: { params: { slug: string 
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {category.productos.map((product) => (
-            <ProductCard key={product.id} product={{
-              id: product.id,
-              nombre: product.nombre,
-              descripcion: product.descripcion,
-              precio: Number(product.precio),
-              precioOferta: product.precioOferta ? Number(product.precioOferta) : null,
-              enOferta: product.enOferta,
-              imagenes: product.imagenes?.map(img => ({
-                url: img.url,
-                alt: img.alt || product.nombre
-              })) || [],
-              slug: product.slug,
-              categoria: {
-                id: category.id,
-                nombre: category.nombre,
-                slug: category.slug
-              },
-              existencias: product.existencias
-            } satisfies ProductView} />
+            <ProductCard
+              key={product.id}
+              product={{
+                id: product.id,
+                nombre: product.nombre,
+                descripcion: product.descripcion,
+                precio: Number(product.precio),
+                precioOferta: product.precioOferta
+                  ? Number(product.precioOferta)
+                  : null,
+                enOferta: product.enOferta,
+                destacado: product.destacado, // Asegúrate de que esta propiedad exista en tu objeto
+                marca: product.marca, // Asegúrate de que esta propiedad exista en tu objeto
+                imagenes:
+                  product.imagenes?.map((img) => ({
+                    url: img.url,
+                    alt: img.alt || product.nombre,
+                  })) || [],
+                categoria: {
+                  //id: category.id,
+                  nombre: category.nombre,
+                  slug: category.slug,
+                },
+                existencias: product.existencias,
+              }}
+            />
           ))}
         </div>
-
       )}
     </main>
-  )
-} 
+  );
+}

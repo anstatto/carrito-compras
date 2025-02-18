@@ -51,11 +51,11 @@ export interface ProductView {
     url: string
     alt: string | null
   }[]
-  slug: string
+  slug?: string
   categoria: {
     id: string
     nombre: string
     slug: string
   }
   existencias: number
-} 
+}
