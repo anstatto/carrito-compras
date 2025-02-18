@@ -7,8 +7,8 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { motion } from 'framer-motion'
 import type { Category } from '@/interfaces/Category'
-import { OptimizedImage } from '@/components/OptimizedImage'
 import React from 'react'
+import OptimizedImage from '@/components/OptimizedImage'
 
 interface Props {
   params: Promise<{ id: string }>
