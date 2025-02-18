@@ -101,9 +101,9 @@ async function getData(params: SearchParams = {}) {
 export default async function CatalogoPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }) {
-  const params = await Promise.resolve(searchParams);
+  const params = await searchParams;
 
   const defaultParams = {
     pagina: params.pagina?.toString() || "1",
