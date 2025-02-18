@@ -83,19 +83,18 @@ export default function CheckoutForm() {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
-      <motion.form 
-        onSubmit={handleSubmit} 
+      <motion.form
+        onSubmit={handleSubmit}
         className="space-y-8"
       >
-        <motion.div 
+        <motion.div
           className="bg-white p-6 rounded-2xl shadow-sm border border-pink-100"
           whileHover={{ boxShadow: '0 4px 20px rgba(236, 72, 153, 0.1)' }}
         >
           <h3 className="text-lg font-semibold mb-6 text-gray-800">
             Información de pago
           </h3>
-          
-          <PaymentElement 
+          <PaymentElement
             options={{
               layout: 'tabs',
               defaultValues: {
@@ -116,10 +115,10 @@ export default function CheckoutForm() {
             className="max-w-xl mx-auto"
           />
         </motion.div>
-        
+
         <AnimatePresence>
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -164,4 +163,4 @@ export default function CheckoutForm() {
       </motion.form>
     </motion.div>
   )
-} 
+}

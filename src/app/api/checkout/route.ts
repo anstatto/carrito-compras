@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { 
           error: 'Ya tienes un pedido pendiente en proceso',
-          orderId: pendingOrder.id 
+          orderId: pendingOrder.id
         },
         { status: 400 }
       );

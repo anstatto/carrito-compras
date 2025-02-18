@@ -16,6 +16,7 @@ export default function CheckoutSuccessPage() {
         // Limpiar el carrito
         localStorage.removeItem('cart')
         window.dispatchEvent(new Event('cartUpdated'))
+        
         toast.success('¡Gracias por tu compra! Te hemos enviado un correo de confirmación.')
       } catch (error) {
         console.error('Error al limpiar el carrito:', error)

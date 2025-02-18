@@ -80,7 +80,7 @@ export default function CartDropdown() {
   }
 
   const clearCart = () => {
-    localStorage.setItem('cart', '[]')
+    localStorage.removeItem('cart')
     setItems([])
     setTotal(0)
     showSuccess('Carrito vaciado')
@@ -223,7 +223,7 @@ export default function CartDropdown() {
                   </div>
                   
                   <Link 
-                    href="/checkout" 
+                    href="/acuerdopago" 
                     onClick={() => setIsOpen(false)}
                     className="block w-full py-3 px-4 rounded-xl text-center font-medium
                     bg-gradient-to-r from-pink-500 to-pink-600
@@ -242,4 +242,4 @@ export default function CartDropdown() {
       </AnimatePresence>
     </div>
   )
-} 
+}
