@@ -11,7 +11,7 @@ export default function FooterLogo() {
                       bg-white rounded-full shadow-md"
       >
         <Image
-          src="/logo/logo.svg"
+          src="/logo/Logo.svg"
           alt="Arlin Glow Care"
           width={0}
           height={0}
