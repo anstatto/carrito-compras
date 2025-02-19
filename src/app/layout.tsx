@@ -7,7 +7,7 @@ export const metadata = {
   title: 'Arlin Glow Care',
   description: 'Tu tienda de belleza y cuidado personal',
   icons: {
-    icon: "/src/favicon.ico"
+    icon: "/favicon.ico"
   }
 }
 
