@@ -8,10 +8,7 @@ export default async function middleware(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET,
   });
 
-  // Bloquear la ruta /checkout
-  if (request.nextUrl.pathname.startsWith("/checkout")) {
-    return NextResponse.redirect(new URL("/acceso-denegado", request.url));
-  }
+
 
   if (request.nextUrl.pathname.startsWith("/admin")) {
     if (!token) {
@@ -29,5 +26,5 @@ export default async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/checkout/:path*"],
+  matcher: ["/admin/:path*"],
 }; 
