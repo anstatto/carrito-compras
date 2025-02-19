@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
+    "prisma": "prisma migrate dev --name initial",
     "generate-secret": "ts-node -P tsconfig-scripts.json scripts/generate-secret.ts"
   },
   "dependencies": {
