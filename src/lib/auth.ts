@@ -14,7 +14,7 @@ export async function verifyAdmin() {
   return session
 }
 
-export const authOptions: NextAuthOptions = {
+export const  authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
