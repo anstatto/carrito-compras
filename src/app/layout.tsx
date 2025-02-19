@@ -6,6 +6,9 @@ import { authOptions } from '@/lib/auth'
 export const metadata = {
   title: 'Arlin Glow Care',
   description: 'Tu tienda de belleza y cuidado personal',
+  icons: {
+    icon: "/src/favicon.ico"
+  }
 }
 
 export default async function RootLayout({
