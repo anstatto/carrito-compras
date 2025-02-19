@@ -6,29 +6,22 @@ import { Prisma } from '@prisma/client'
 import { ProductFormData } from '@/interfaces/Product'
 
 
-interface Params {
-  params: {
-    id: string
-  }
-}
+type Params = { id: string };
 
 interface ProductImage {
   url: string;
   alt?: string | null;
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: Request, { params }: { params: Promise<Params> }) {
   try {
     // Asegurarnos que tenemos el id
-    const id = await params.id
+    const {id} = await params;
     if (!id) {
       return NextResponse.json(
-        { error: 'ID de producto requerido' },
+        { error: "ID de producto requerido" },
         { status: 400 }
-      )
+      );
     }
 
     const producto = await prisma.producto.findUnique({
@@ -50,51 +43,51 @@ export async function GET(
         categoria: {
           select: {
             id: true,
-            nombre: true
-          }
+            nombre: true,
+          },
         },
         imagenes: {
-          orderBy: { orden: 'asc' },
+          orderBy: { orden: "asc" },
           select: {
             id: true,
             url: true,
             alt: true,
             principal: true,
-            orden: true
-          }
-        }
-      }
-    })
+            orden: true,
+          },
+        },
+      },
+    });
 
     if (!producto) {
       return NextResponse.json(
-        { error: 'Producto no encontrado' },
+        { error: "Producto no encontrado" },
         { status: 404 }
-      )
+      );
     }
 
     // Procesar URLs de imágenes
     const processedProduct = {
       ...producto,
-      imagenes: producto.imagenes.map(img => ({
+      imagenes: producto.imagenes.map((img) => ({
         ...img,
-        url: `/productos/${img.url.split('/').pop()}`
-      }))
-    }
+        url: `/productos/${img.url.split("/").pop()}`,
+      })),
+    };
 
-    return NextResponse.json(processedProduct)
+    return NextResponse.json(processedProduct);
   } catch (error) {
-    console.error('Error al obtener producto:', error)
+    console.error("Error al obtener producto:", error);
     return NextResponse.json(
-      { error: 'Error al obtener producto' },
+      { error: "Error al obtener producto" },
       { status: 500 }
-    )
+    );
   }
 }
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<Params> }
 ) {
   try {
     // 1. Verificar autenticación
@@ -107,15 +100,15 @@ export async function PUT(
     }
 
     // 2. Obtener y validar datos
-    const productId = params.id
+    const {id} = await params;
     const requestData = await request.json() as ProductFormData
 
     // 3. Actualizar producto base
     const updatedProduct = await prisma.$transaction(async (tx) => {
       // Actualizar producto principal
       const producto = await tx.producto.update({
-        where: { 
-          id: productId 
+        where: {
+          id: id,
         },
         data: {
           nombre: requestData.nombre,
@@ -126,19 +119,19 @@ export async function PUT(
           categoriaId: requestData.categoriaId,
           activo: requestData.activo,
           enOferta: requestData.enOferta,
-          precioOferta: requestData.precioOferta 
-            ? new Prisma.Decimal(requestData.precioOferta) 
+          precioOferta: requestData.precioOferta
+            ? new Prisma.Decimal(requestData.precioOferta)
             : null,
           destacado: requestData.destacado,
-          actualizadoEl: new Date()
-        }
-      })
+          actualizadoEl: new Date(),
+        },
+      });
 
       // Actualizar imágenes si existen
       if (requestData.imagenes?.length > 0) {
         await tx.image.deleteMany({
-          where: { productoId: productId }
-        })
+          where: { productoId: id },
+        });
 
         await tx.image.createMany({
           data: requestData.imagenes.map((img, index) => ({
@@ -146,19 +139,19 @@ export async function PUT(
             alt: img.alt || producto.nombre,
             principal: index === 0,
             orden: index,
-            productoId: productId
-          }))
-        })
+            productoId: id,
+          })),
+        });
       }
 
       // Retornar producto actualizado con relaciones
       return tx.producto.findUnique({
-        where: { id: productId },
+        where: { id: id },
         include: {
           categoria: true,
-          imagenes: true
-        }
-      })
+          imagenes: true,
+        },
+      });
     })
 
     return NextResponse.json({
@@ -176,28 +169,28 @@ export async function PUT(
   }
 }
 
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(request: Request, { params }: { params: Promise<Params>}) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'No autorizado' },
         { status: 401 }
       )
     }
-
+    const  { id } = await params;
     // Primero eliminar imágenes relacionadas
     await prisma.image.deleteMany({
-      where: { productoId: params.id }
+      where: { productoId: id}
     })
 
     // Luego eliminar el producto
     await prisma.producto.delete({
-      where: { id: params.id }
+      where: { id: id }
     })
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       message: 'Producto eliminado correctamente'
     })
@@ -212,7 +205,7 @@ export async function DELETE(request: Request, { params }: Params) {
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<Params> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -223,7 +216,7 @@ export async function PATCH(
       }, { status: 401 })
     }
 
-    const id = params.id
+    const {id} = await params;
     const data = await request.json()
 
     const producto = await prisma.producto.update({

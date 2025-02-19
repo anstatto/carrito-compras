@@ -7,12 +7,7 @@ import Link from "next/link";
 import { ProductView } from "@/interfaces/Product";
 import { Metadata } from "next";
 
-// Definir el tipo para params
-type PageProps = {
-  params: {
-    id: string;
-  };
-};
+type Params = Promise<{ id: string }>;
 
 // Función para obtener el producto
 async function getProductById(id: string): Promise<ProductView | null> {
@@ -61,7 +56,7 @@ async function getProductById(id: string): Promise<ProductView | null> {
         url: img.url,
         alt: img.alt || producto.nombre,
       })),
-      slug: producto.slug || "default-slug", // Asegurar que slug no sea undefined
+      slug: producto.slug || "default-slug",
       categoria: {
         id: producto.categoria.id,
         nombre: producto.categoria.nombre,
@@ -78,8 +73,11 @@ async function getProductById(id: string): Promise<ProductView | null> {
 // Generar metadatos
 export async function generateMetadata({
   params,
-}: PageProps): Promise<Metadata> {
-  const producto = await getProductById(params.id);
+}: {
+  params: Params;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const producto = await getProductById(id);
 
   if (!producto) {
     return {
@@ -113,8 +111,9 @@ export async function generateStaticParams() {
 }
 
 // Página del producto
-export default async function ProductPage({ params }: PageProps) {
-  const producto = await getProductById(params.id);
+export default async function ProductPage({ params }: { params: Params }) {
+  const { id } = await params;
+  const producto = await getProductById(id);
 
   if (!producto) {
     notFound();

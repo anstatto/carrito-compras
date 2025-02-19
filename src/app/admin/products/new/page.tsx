@@ -19,7 +19,8 @@ export default function NewProductPage() {
     enOferta: false,
     destacado: false,
     sku: '',
-    slug: ''
+    slug: '',
+    marca: 'ARLIN_GLOW'
   }
 
   const [formData, setFormData] = useState<ProductFormData>(initialData)

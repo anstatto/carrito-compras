@@ -1,69 +1,72 @@
-'use client'
+"use client";
 
-import dynamic from 'next/dynamic'
-import { useState, useCallback, memo } from 'react'
-import Image from 'next/image'
-import { FaPlus, FaTimes, FaImages } from 'react-icons/fa'
-import { motion, AnimatePresence } from 'framer-motion'
-import { toast } from 'react-hot-toast'
+import dynamic from "next/dynamic";
+import { useState, useCallback, memo } from "react";
+import Image from "next/image";
+import { FaPlus, FaTimes, FaImages } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "react-hot-toast";
 
 // Cargar GalleryPage de forma dinámica
-const GalleryPage = dynamic(() => import('../../gallery/page'), {
+const GalleryPage = dynamic(() => import("../../_components/galeria/Gallery"), {
   loading: () => <div>Cargando galería...</div>,
-  ssr: false
-})
+  ssr: false,
+});
 
 interface ImageSelectorProps {
-  currentImage: string | null
-  onImageSelect: (url: string) => void
+  currentImage: string | null;
+  onImageSelect: (url: string) => void;
 }
 
-export const ImageSelector = memo(function ImageSelector({ 
-  currentImage, 
-  onImageSelect 
+export const ImageSelector = memo(function ImageSelector({
+  currentImage,
+  onImageSelect,
 }: ImageSelectorProps) {
-  const [showGallery, setShowGallery] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
+  const [showGallery, setShowGallery] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    // Validar tamaño y tipo de archivo
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('La imagen no debe superar 5MB')
-      return
-    }
+      // Validar tamaño y tipo de archivo
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("La imagen no debe superar 5MB");
+        return;
+      }
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('El archivo debe ser una imagen')
-      return
-    }
+      if (!file.type.startsWith("image/")) {
+        toast.error("El archivo debe ser una imagen");
+        return;
+      }
 
-    setIsUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append('image', file)
-      formData.append('module', 'categorias')
-      formData.append('name', `${file.name}_${Date.now()}`)
+      setIsUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("module", "categorias");
+        formData.append("name", `${file.name}_${Date.now()}`);
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      })
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
 
-      if (!res.ok) throw new Error('Error al subir imagen')
-      
-      const data = await res.json()
-      onImageSelect(data.url)
-      toast.success('Imagen subida correctamente')
-    } catch (error) {
-      console.error('Error:', error)
-      toast.error('Error al subir la imagen')
-    } finally {
-      setIsUploading(false)
-    }
-  }, [onImageSelect])
+        if (!res.ok) throw new Error("Error al subir imagen");
+
+        const data = await res.json();
+        onImageSelect(data.url);
+        toast.success("Imagen subida correctamente");
+      } catch (error) {
+        console.error("Error:", error);
+        toast.error("Error al subir la imagen");
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [onImageSelect]
+  );
 
   return (
     <div className="space-y-4">
@@ -91,7 +94,7 @@ export const ImageSelector = memo(function ImageSelector({
               disabled={isUploading}
             />
             {isUploading ? (
-              <motion.div 
+              <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                 className="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full"
@@ -122,7 +125,7 @@ export const ImageSelector = memo(function ImageSelector({
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={() => onImageSelect('')}
+            onClick={() => onImageSelect("")}
             className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all shadow-lg"
           >
             <FaTimes size={12} />
@@ -139,7 +142,7 @@ export const ImageSelector = memo(function ImageSelector({
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
-                setShowGallery(false)
+                setShowGallery(false);
               }
             }}
           >
@@ -151,7 +154,7 @@ export const ImageSelector = memo(function ImageSelector({
             >
               <div className="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10">
                 <h3 className="text-lg font-semibold">Seleccionar Imagen</h3>
-                <button 
+                <button
                   onClick={() => setShowGallery(false)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
@@ -160,10 +163,10 @@ export const ImageSelector = memo(function ImageSelector({
               </div>
 
               <div className="flex-1 overflow-y-auto p-4">
-                <GalleryPage 
+                <GalleryPage
                   onImageSelect={(url) => {
-                    onImageSelect(url)
-                    setShowGallery(false)
+                    onImageSelect(url);
+                    setShowGallery(false);
                   }}
                   selectionMode={true}
                 />
@@ -173,5 +176,5 @@ export const ImageSelector = memo(function ImageSelector({
         )}
       </AnimatePresence>
     </div>
-  )
-}) 
+  );
+});

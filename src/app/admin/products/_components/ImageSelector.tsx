@@ -10,7 +10,7 @@ import { ProductImage } from '@/interfaces/Product'
 import { Portal } from '@/components/Portal'
 
 // Cargar GalleryPage dinámicamente
-const GalleryPage = dynamic(() => import('../../gallery/page'), {
+const GalleryPage = dynamic(() => import('../../_components/galeria/Gallery'), {
   loading: () => <div>Cargando galería...</div>,
   ssr: false
 })

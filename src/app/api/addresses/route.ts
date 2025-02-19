@@ -16,8 +16,8 @@ export async function GET(request: Request) {
   try {
     const direcciones = await prisma.direccion.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' }
-    })
+      orderBy: { creadoEl: "desc" },
+    });
 
     return NextResponse.json(direcciones)
   } catch (error) {

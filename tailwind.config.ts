@@ -65,20 +65,20 @@ export default {
         // Estados
         status: {
           error: {
-            light: theme.light.error,
-            dark: theme.dark.error,
+            light: theme.light,
+            dark: theme.dark,
           },
           success: {
-            light: theme.light.success,
-            dark: theme.dark.success,
+            light: theme.light,
+            dark: theme.dark,
           },
           warning: {
-            light: theme.light.warning,
-            dark: theme.dark.warning,
+            light: theme.light,
+            dark: theme.dark,
           },
           info: {
-            light: theme.light.info,
-            dark: theme.dark.info,
+            light: theme.light,
+            dark: theme.dark,
           },
         },
       },
