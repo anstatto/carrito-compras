@@ -64,7 +64,7 @@ export default function Footer() {
               Enlaces Rápidos
             </h3>
             <ul className="space-y-3">
-              {["Categorias", "Ofertas", "Nosotros"].map(
+              {["Catalogo","Categorias", "Ofertas", "Nosotros"].map(
                 (item) => (
                   <li key={item}>
                     <Link
