@@ -146,7 +146,7 @@ const generatePDF = async (orderDetails: OrderDetails): Promise<string> => {
   doc.text(`Total: RD$${totalAmount.toFixed(2)}`, 20, yOffset + 10);
 
   // Crear directorio temporal para almacenar el PDF
-  const tempDir = path.join(process.cwd(), "temp");
+  const tempDir = path.join(process.cwd(), "tmp");
   await fs.mkdir(tempDir, { recursive: true });
   const filePath = path.join(tempDir, `${orderDetails.id}.pdf`);
 
