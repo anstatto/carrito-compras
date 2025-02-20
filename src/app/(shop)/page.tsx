@@ -1,3 +1,4 @@
+import { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
 import { ProductView } from '@/interfaces/Product'
 import HeroSection from '@/app/components/home/HeroSection'
@@ -78,17 +79,23 @@ async function getFeaturedProducts() {
   }
 }
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Arlin Glow Care - Productos de Belleza y Cuidado Personal',
   description: 'Descubre nuestra exclusiva colección de productos para el cuidado de tu belleza. Productos naturales y de alta calidad.',
   keywords: ['belleza', 'cuidado personal', 'productos naturales', 'cosmética'],
+  icons: [
+    {
+      rel: 'icon',
+      url: '/favicon.ico',
+    },
+  ],
 }
 
 export default async function HomePage() {
-  const featuredProducts = await getFeaturedProducts()
+  const featuredProducts = await getFeaturedProducts();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[var(--background-pink)] via-white to-[var(--background-pink)]">
+    <main className="min-h-screen bg-gradient-to-b from-[var(--background-pink)] via-white to-[var(--background-pink)]">
       {/* Hero Section con animaciones y diseño mejorado */}
       <HeroSection />
 
@@ -105,6 +112,6 @@ export default async function HomePage() {
 
       {/* WhatsApp Button con animación de entrada y hover */}
       <WhatsAppButton />
-    </div>
-  )
+    </main>
+  );
 }
