@@ -18,7 +18,7 @@ export default function OfertasPage() {
         cache: "no-store",
         next: { revalidate: 0 },
       });
-      console.log(res);
+      //console.log(res);
       if (!res.ok) throw new Error("Error al cargar productos");
       const data = await res.json();
       setProducts(data);

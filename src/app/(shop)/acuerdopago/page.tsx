@@ -61,7 +61,7 @@ const sendToWhatsApp = async (
       "_blank"
     );
   } catch (error) {
-    console.error("Error al enviar la orden por WhatsApp:", error);
+    //console.error("Error al enviar la orden por WhatsApp:", error);
     toast.error(`Error al enviar la orden: ${error}`);
   }
 };
