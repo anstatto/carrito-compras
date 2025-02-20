@@ -22,7 +22,7 @@ interface ProductoInfo {
   precio: number;
 }
 
-const PHONE_NUMBER = "18297828831";
+const PHONE_NUMBER = "8297828831";
 const MIN_AMOUNT_DOP = 50;
 
 /**
