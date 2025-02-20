@@ -97,7 +97,7 @@ const generateWhatsAppMessage = async (
   message += `\n*Total:* RD$${total.toFixed(2)}`;
   message += `\n\n*Estado:* Pendiente de confirmación`;
 
-  const encodedMessage = encodeURIComponent(message);
+  const encodedMessage = message;
   return `https://wa.me/${PHONE_NUMBER}?text=${encodedMessage}`;
 };
 
