@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import OrderSummary from "./_components/OrderSummary";
@@ -64,10 +63,6 @@ const sendToWhatsApp = async (
     if (!response.ok) {
       // Si hay detalles del error, mostrarlos
       if (data.detalles) {
-        // Encontrar el producto en el carrito para mostrar su nombre
-        const productoConError = items.find(item => item.id === data.detalles.productoId);
-        const nombreProducto = productoConError?.nombre || "Producto";
-        
         // Actualizar el carrito si es necesario
         if (data.detalles.existencias === 0) {
           // Remover el producto del carrito si ya no existe
@@ -112,8 +107,6 @@ const sendToWhatsApp = async (
         body: JSON.stringify(orderData),
       });
 
-      const confirmData = await confirmResponse.json();
-
       if (confirmResponse.ok) {
         // Si la confirmación fue exitosa, limpiamos el carrito
         clearCart();
@@ -138,22 +131,14 @@ const sendToWhatsApp = async (
 };
 
 export default function AcuerdoPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (status === "loading") return;
+    if (isLoading) return;
 
-    if (status === "unauthenticated") {
-      toast.error("Por favor, inicia sesión para continuar");
-      router.push("/login");
-      return;
-    }
-
-    // Solo cargar items si el usuario está autenticado
     const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
     if (cartItems.length === 0) {
       router.push("/catalogo");
@@ -161,7 +146,7 @@ export default function AcuerdoPage() {
     }
     setItems(cartItems);
     setIsLoading(false);
-  }, [status, router]);
+  }, [isLoading, router]);
 
   const handleAddressSelect = (addressId: string) => {
     setSelectedAddress(addressId);
@@ -174,7 +159,7 @@ export default function AcuerdoPage() {
     window.dispatchEvent(new Event("cartUpdated"));
   };
 
-  if (isLoading || status === "loading") {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
@@ -200,7 +185,7 @@ export default function AcuerdoPage() {
             <button
               onClick={() => sendToWhatsApp(items, selectedAddress, clearCart)}
               className="bg-green-500 text-white py-4 px-8 rounded-lg text-lg font-bold flex items-center gap-2 transition-transform transform hover:scale-105 hover:bg-green-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!selectedAddress || items.length === 0 || status !== "authenticated"}
+              disabled={!selectedAddress || items.length === 0}
             >
               <FaWhatsapp className="text-2xl" />
               <span>Enviar Orden por WhatsApp</span>
