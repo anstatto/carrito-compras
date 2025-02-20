@@ -101,16 +101,15 @@ export default function Footer() {
               <li className="flex items-center space-x-3 text-gray-600 dark:text-gray-300">
                 <FaEnvelope className="text-pink-500 text-xl" />
                 <a
-                  href="mailto:contacto@arlinglow.com"
+                  href="mailto:arlinglowcare@gmail.com"
                   className="text-lg hover:text-pink-500 transition-colors"
                 >
-                  contacto@arlinglow.com
+                  arlinglowcare@gmail.com
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Formulario de Contacto */}
           <div>
             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">
               Contáctanos

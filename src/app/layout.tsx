@@ -2,13 +2,11 @@ import { Providers } from './providers'
 import './globals.css'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { Metadata } from 'next'
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Arlin Glow Care',
-  description: 'Tu tienda de belleza y cuidado personal',
-  icons: {
-    icon: "/favicon.ico"
-  }
+  description: 'Tu tienda de belleza y cuidado personal'
 }
 
 export default async function RootLayout({
@@ -20,6 +18,9 @@ export default async function RootLayout({
 
   return (
     <html lang="es" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body>
         <Providers session={session}>
           {children}

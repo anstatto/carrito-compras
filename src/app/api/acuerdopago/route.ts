@@ -4,13 +4,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { randomUUID } from "crypto";
 
 interface AcuerdoItem {
   id: string;
   cantidad: number;
   precio: number;
-  nombre?: string;
 }
 
 interface AcuerdoBody {
@@ -19,238 +17,220 @@ interface AcuerdoBody {
   total: number;
 }
 
-interface Cliente {
-  nombre: string;
-  email: string;
-}
-
-interface Direccion {
-  calle: string;
-  provincia: string;
-  municipio: string;
-  codigoPostal: string | null;
-}
-
-interface Producto {
+interface ProductoInfo {
   nombre: string;
   precio: number;
 }
 
-interface Item {
-  cantidad: number;
-  producto: Producto;
-}
-
-interface OrderDetails {
-  id: string;
-  cliente: Cliente;
-  direccion: Direccion;
-  items: Item[];
-}
-
+const PHONE_NUMBER = "18297828831";
 const MIN_AMOUNT_DOP = 50;
-const PENDING_ORDER_TIMEOUT = 30 * 24 * 60 * 60 * 1000; // 30 días en milisegundos
 
 /**
- * Obtiene los detalles completos de un pedido, incluyendo cliente, dirección e ítems.
- * @param orderId - El ID del pedido.
- * @returns Los detalles del pedido o null si no se encuentra.
+ * Genera un mensaje de WhatsApp con los detalles del pedido.
  */
-const getOrderDetails = async (
-  orderId: string
-): Promise<OrderDetails | null> => {
-  return (await prisma.pedido.findUnique({
-    where: { id: orderId },
-    include: {
-      cliente: { select: { nombre: true, email: true } },
-      direccion: {
-        select: {
-          calle: true,
-          provincia: true,
-          municipio: true,
-          codigoPostal: true,
-        },
-      },
-      items: {
-        include: {
-          producto: { select: { nombre: true, precio: true } },
-        },
-      },
-    },
-  })) as OrderDetails | null;
-};
+const generateWhatsAppMessage = async (
+  items: AcuerdoItem[],
+  userId: string,
+  direccionId: string,
+  total: number
+): Promise<string> => {
+  // Obtener datos del usuario
+  const usuario = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { nombre: true, email: true }
+  });
 
-/**
- * Genera un mensaje de texto con los detalles del pedido para enviar por WhatsApp.
- * @param orderDetails - Los detalles del pedido.
- * @returns El enlace de WhatsApp con el mensaje.
- */
-const generateWhatsAppMessage = (orderDetails: OrderDetails): string => {
-  let message = `*Orden de Compra*\n`;
-  message += `Número de Orden: ${orderDetails.id}\n`;
+  // Obtener dirección
+  const direccion = await prisma.direccion.findUnique({
+    where: { id: direccionId },
+    select: { calle: true, provincia: true, municipio: true, codigoPostal: true }
+  });
+
+  if (!usuario || !direccion) {
+    throw new Error("No se pudieron obtener los datos del usuario o dirección");
+  }
+
+  // Obtener detalles de productos
+  const productos = await Promise.all(
+    items.map(async (item) => {
+      const producto = await prisma.producto.findUnique({
+        where: { id: item.id },
+        select: { nombre: true, precio: true }
+      }) as ProductoInfo | null;
+
+      if (!producto) {
+        return null;
+      }
+
+      return {
+        nombre: producto.nombre,
+        precio: producto.precio,
+        cantidad: item.cantidad,
+        subtotal: producto.precio * item.cantidad
+      };
+    })
+  );
+
+  let message = `*Nueva Solicitud de Pedido*\n`;
   message += `Fecha: ${new Date().toLocaleDateString()}\n\n`;
 
   // Datos del cliente
-  message += `*Cliente:* ${orderDetails.cliente.nombre}\n`;
-  message += `*Email:* ${orderDetails.cliente.email}\n\n`;
+  message += `*Cliente:* ${usuario.nombre}\n`;
+  message += `*Email:* ${usuario.email}\n\n`;
 
   // Datos de la dirección
   message += `*Dirección de Envío:*\n`;
-  message += `${orderDetails.direccion.calle}, ${orderDetails.direccion.municipio}, ${orderDetails.direccion.provincia}\n`;
-  if (orderDetails.direccion.codigoPostal) {
-    message += `Código Postal: ${orderDetails.direccion.codigoPostal}\n`;
+  message += `${direccion.calle}, ${direccion.municipio}, ${direccion.provincia}\n`;
+  if (direccion.codigoPostal) {
+    message += `Código Postal: ${direccion.codigoPostal}\n`;
   }
 
-  // Lista de ítems
-  message += `\n*Productos:* \n`;
-  orderDetails.items.forEach((item) => {
-    const { nombre, precio } = item.producto;
-    const subtotal = item.cantidad * precio;
-    message += `${nombre} - Cantidad: ${item.cantidad} - Precio: RD$${precio.toFixed(2)} - Subtotal: RD$${subtotal.toFixed(2)}\n`;
+  // Lista de productos
+  message += `\n*Productos:*\n`;
+  productos.forEach((producto) => {
+    if (producto) {
+      message += `${producto.nombre} - Cantidad: ${producto.cantidad} - Precio: RD$${producto.precio.toFixed(2)} - Subtotal: RD$${producto.subtotal.toFixed(2)}\n`;
+    }
   });
 
   // Total
-  const totalAmount = orderDetails.items.reduce(
-    (acc, item) => acc + item.cantidad * item.producto.precio,
-    0
-  );
-  message += `\n*Total:* RD$${totalAmount.toFixed(2)}`;
+  message += `\n*Total:* RD$${total.toFixed(2)}`;
+  message += `\n\n*Estado:* Pendiente de confirmación`;
 
-  // URL de WhatsApp con el mensaje
   const encodedMessage = encodeURIComponent(message);
-  const phoneNumber = "+1XXXXXXXXXX"; // Aquí debes colocar el número de teléfono al que deseas enviar el mensaje.
-  return `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+  return `https://wa.me/${PHONE_NUMBER}?text=${encodedMessage}`;
 };
 
 export async function POST(req: Request) {
   try {
-    // Validar sesión del usuario
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Sesión no válida" },
+        { status: 401 }
+      );
     }
 
-    // Extraer y validar el cuerpo de la solicitud
-    const body = (await req.json()) as AcuerdoBody;
-    if (
-      !body.items ||
-      body.items.length === 0 ||
-      !body.direccionId ||
-      !body.total
-    ) {
+    const body = await req.json() as AcuerdoBody;
+
+    // Validaciones básicas
+    if (!body.items?.length) {
       return NextResponse.json(
-        { error: "Datos incompletos", body },
+        { error: "No hay productos en el carrito" },
         { status: 400 }
       );
     }
+
+    if (!body.direccionId) {
+      return NextResponse.json(
+        { error: "No se ha seleccionado una dirección de envío" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof body.total !== 'number' || isNaN(body.total) || body.total <= 0) {
+      return NextResponse.json(
+        { error: "El total del pedido es inválido" },
+        { status: 400 }
+      );
+    }
+
     if (body.total < MIN_AMOUNT_DOP) {
       return NextResponse.json(
-        { error: `El monto mínimo de compra es RD$${MIN_AMOUNT_DOP}.00`, body },
+        { error: `El monto mínimo de compra es RD$${MIN_AMOUNT_DOP}.00` },
         { status: 400 }
       );
     }
 
-    // Verificar existencias de cada producto
-    const productos = await Promise.all(
-      body.items.map((item) =>
-        prisma.producto.findUnique({
+    // Verificar existencias y validar productos
+    const productosValidacion = await Promise.all(
+      body.items.map(async (item) => {
+        const producto = await prisma.producto.findUnique({
           where: { id: item.id },
-          select: { id: true, existencias: true, nombre: true },
-        })
-      )
-    );
-    const stockInsuficiente = productos.find((producto, index) => {
-      if (!producto) return true;
-      return producto.existencias < body.items[index].cantidad;
-    });
-    if (stockInsuficiente) {
-      return NextResponse.json(
-        { error: "Stock insuficiente para algunos productos", body },
-        { status: 400 }
-      );
-    }
+          select: { 
+            id: true, 
+            existencias: true, 
+            nombre: true,
+            activo: true,
+            precio: true 
+          },
+        });
 
-    // Verificar si existe un pedido pendiente
-    const pendingOrder = await prisma.pedido.findFirst({
-      where: {
-        clienteId: session.user.id,
-        estado: "PENDIENTE",
-        estadoPago: "PENDIENTE",
-        creadoEl: { gte: new Date(Date.now() - PENDING_ORDER_TIMEOUT) },
-      },
-    });
-    if (pendingOrder) {
+        if (!producto) {
+          return {
+            error: true,
+            mensaje: `El producto con ID ${item.id} no existe en el catálogo`,
+            id: item.id,
+            cantidadSolicitada: item.cantidad
+          };
+        }
+
+        if (!producto.activo) {
+          return {
+            error: true,
+            mensaje: `El producto "${producto.nombre}" no está disponible actualmente`,
+            id: item.id,
+            cantidadSolicitada: item.cantidad
+          };
+        }
+
+        if (producto.existencias < item.cantidad) {
+          return {
+            error: true,
+            mensaje: `Stock insuficiente para "${producto.nombre}". Disponible: ${producto.existencias}, Solicitado: ${item.cantidad}`,
+            id: item.id,
+            cantidadSolicitada: item.cantidad,
+            existencias: producto.existencias
+          };
+        }
+
+        return {
+          error: false,
+          producto,
+          cantidadSolicitada: item.cantidad
+        };
+      })
+    );
+
+    // Verificar errores en productos
+    const productoConError = productosValidacion.find(item => item.error);
+    if (productoConError) {
       return NextResponse.json(
         {
-          error: "Ya tienes un pedido pendiente en proceso",
-          orderId: pendingOrder.id,
-          body,
+          error: productoConError.mensaje,
+          detalles: {
+            productoId: productoConError.id,
+            cantidadSolicitada: productoConError.cantidadSolicitada,
+            existencias: 'existencias' in productoConError ? productoConError.existencias : 0
+          }
         },
         { status: 400 }
       );
     }
 
-    // Cancelar pedidos pendientes que excedan el tiempo límite
-    await prisma.pedido.updateMany({
-      where: {
-        clienteId: session.user.id,
-        estado: "PENDIENTE",
-        estadoPago: "PENDIENTE",
-        creadoEl: { lt: new Date(Date.now() - PENDING_ORDER_TIMEOUT) },
-      },
-      data: {
-        estado: "CANCELADO",
-        estadoPago: "FALLIDO",
-      },
-    });
-
-    // Crear el nuevo pedido
-    const order = await prisma.pedido.create({
-      data: {
-        numero: `ORD-${randomUUID().slice(0, 8)}`,
-        clienteId: session.user.id,
-        direccionId: body.direccionId,
-        subtotal: body.total,
-        impuestos: 0,
-        costoEnvio: 0,
-        total: body.total,
-        estado: "PENDIENTE",
-        estadoPago: "PENDIENTE",
-        items: {
-          create: body.items.map((item) => ({
-            productoId: item.id,
-            cantidad: item.cantidad,
-            precioUnit: item.precio,
-            subtotal: item.precio * item.cantidad,
-          })),
-        },
-      },
-    });
-
-    // Actualizar el stock de los productos adquiridos
-    await Promise.all(
-      body.items.map((item) =>
-        prisma.producto.update({
-          where: { id: item.id },
-          data: { existencias: { decrement: item.cantidad } },
-        })
-      )
+    // Generar enlace de WhatsApp
+    const whatsappUrl = await generateWhatsAppMessage(
+      body.items,
+      session.user.id,
+      body.direccionId,
+      body.total
     );
 
-    // Obtener detalles completos de la orden
-    const orderDetails = await getOrderDetails(order.id);
-    if (!orderDetails) {
-      throw new Error("No se pudo obtener los detalles del pedido");
-    }
+    return NextResponse.json({
+      success: true,
+      whatsappUrl,
+      message: "Solicitud de pedido generada. Por favor, confirme a través de WhatsApp.",
+    });
 
-    // Generar el mensaje de WhatsApp
-    const whatsappUrl = generateWhatsAppMessage(orderDetails);
-
-    return NextResponse.json({ whatsappUrl }, { status: 200 });
   } catch (error) {
-    console.error("Error en checkout:", error);
-    const message =
-      error instanceof Error ? error.message : "Error al procesar el pedido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Error en la generación del pedido:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Error al procesar la solicitud",
+      },
+      { status: 500 }
+    );
   }
 }
