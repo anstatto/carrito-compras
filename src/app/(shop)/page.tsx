@@ -78,10 +78,13 @@ async function getFeaturedProducts() {
   }
 }
 
-export const metadata = {
-  title: 'Arlin Glow Care - Productos de Belleza y Cuidado Personal',
-  description: 'Descubre nuestra exclusiva colección de productos para el cuidado de tu belleza. Productos naturales y de alta calidad.',
-  keywords: ['belleza', 'cuidado personal', 'productos naturales', 'cosmética'],
+// Metadata como función para evitar problemas de compilación
+export async function generateMetadata() {
+  return {
+    title: 'Arlin Glow Care - Productos de Belleza y Cuidado Personal',
+    description: 'Descubre nuestra exclusiva colección de productos para el cuidado de tu belleza. Productos naturales y de alta calidad.',
+    keywords: ['belleza', 'cuidado personal', 'productos naturales', 'cosmética'],
+  }
 }
 
 export default async function HomePage() {
@@ -89,21 +92,10 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[var(--background-pink)] via-white to-[var(--background-pink)]">
-      {/* Hero Section con animaciones y diseño mejorado */}
       <HeroSection />
-
-      {/* Productos Destacados con efectos de hover y animaciones */}
-      {featuredProducts.length > 0 && (
-        <FeaturedProducts products={featuredProducts} />
-      )}
-
-      {/* Categorías con diseño atractivo y animaciones */}
+      <FeaturedProducts products={featuredProducts} />
       <CategoriesSection />
-
-      {/* Testimonios con efectos de parallax y animaciones */}
       <TestimonialsSection />
-
-      {/* WhatsApp Button con animación de entrada y hover */}
       <WhatsAppButton />
     </main>
   );
