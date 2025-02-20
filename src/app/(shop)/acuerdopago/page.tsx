@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import OrderSummary from "./_components/OrderSummary";
 import AddressSelector from "./_components/AddressSelector";
@@ -131,12 +132,20 @@ const sendToWhatsApp = async (
 };
 
 export default function AcuerdoPage() {
+  const { status } = useSession();
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (status === "loading") return;
+
+    if (status === "unauthenticated") {
+      router.push("/login");
+      return;
+    }
+
     const loadCartItems = () => {
       try {
         const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
@@ -154,7 +163,7 @@ export default function AcuerdoPage() {
     };
 
     loadCartItems();
-  }, [router]);
+  }, [status, router]);
 
   const handleAddressSelect = (addressId: string) => {
     setSelectedAddress(addressId);
@@ -168,7 +177,7 @@ export default function AcuerdoPage() {
     router.push("/catalogo");
   };
 
-  if (isLoading) {
+  if (isLoading || status === "loading") {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
@@ -194,7 +203,7 @@ export default function AcuerdoPage() {
             <button
               onClick={() => sendToWhatsApp(items, selectedAddress, clearCart)}
               className="bg-green-500 text-white py-4 px-8 rounded-lg text-lg font-bold flex items-center gap-2 transition-transform transform hover:scale-105 hover:bg-green-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!selectedAddress || items.length === 0}
+              disabled={!selectedAddress || items.length === 0 || status !== "authenticated"}
             >
               <FaWhatsapp className="text-2xl" />
               <span>Enviar Orden por WhatsApp</span>
