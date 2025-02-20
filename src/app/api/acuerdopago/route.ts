@@ -5,9 +5,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
-import { jsPDF } from "jspdf";
-import fs from "fs/promises";
-import path from "path";
 
 interface AcuerdoItem {
   id: string;
@@ -84,77 +81,45 @@ const getOrderDetails = async (
 };
 
 /**
- * Genera un reporte PDF de la orden con un formato mejorado, incluyendo encabezado,
- * datos del cliente, dirección y una tabla de ítems.
- * @param orderDetails - Los detalles de la orden.
- * @returns La ruta del archivo PDF generado.
+ * Genera un mensaje de texto con los detalles del pedido para enviar por WhatsApp.
+ * @param orderDetails - Los detalles del pedido.
+ * @returns El enlace de WhatsApp con el mensaje.
  */
-const generatePDF = async (orderDetails: OrderDetails): Promise<string> => {
-  const doc = new jsPDF();
-
-  // Encabezado principal
-  doc.setFontSize(18);
-  doc.text("Orden de Compra", 105, 15, { align: "center" });
-
-  // Información de la orden
-  doc.setFontSize(12);
-  doc.text(`Número de Orden: ${orderDetails.id}`, 20, 25);
-  doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 20, 32);
+const generateWhatsAppMessage = (orderDetails: OrderDetails): string => {
+  let message = `*Orden de Compra*\n`;
+  message += `Número de Orden: ${orderDetails.id}\n`;
+  message += `Fecha: ${new Date().toLocaleDateString()}\n\n`;
 
   // Datos del cliente
-  doc.text(`Cliente: ${orderDetails.cliente.nombre}`, 20, 40);
-  doc.text(`Email: ${orderDetails.cliente.email}`, 20, 47);
+  message += `*Cliente:* ${orderDetails.cliente.nombre}\n`;
+  message += `*Email:* ${orderDetails.cliente.email}\n\n`;
 
   // Datos de la dirección
-  doc.text("Dirección de Envío:", 20, 55);
-  doc.text(
-    `${orderDetails.direccion.calle}, ${orderDetails.direccion.municipio}, ${orderDetails.direccion.provincia}`,
-    20,
-    62
-  );
+  message += `*Dirección de Envío:*\n`;
+  message += `${orderDetails.direccion.calle}, ${orderDetails.direccion.municipio}, ${orderDetails.direccion.provincia}\n`;
   if (orderDetails.direccion.codigoPostal) {
-    doc.text(`Código Postal: ${orderDetails.direccion.codigoPostal}`, 20, 69);
+    message += `Código Postal: ${orderDetails.direccion.codigoPostal}\n`;
   }
 
-  // Línea separadora
-  doc.line(20, 75, 190, 75);
-
-  // Encabezado de la tabla de ítems
-  doc.text("Producto", 20, 85);
-  doc.text("Cantidad", 100, 85);
-  doc.text("Precio Unitario", 130, 85);
-  doc.text("Subtotal", 170, 85);
-
   // Lista de ítems
-  let yOffset = 95;
+  message += `\n*Productos:* \n`;
   orderDetails.items.forEach((item) => {
     const { nombre, precio } = item.producto;
     const subtotal = item.cantidad * precio;
-    doc.text(nombre, 20, yOffset);
-    doc.text(`${item.cantidad}`, 100, yOffset);
-    doc.text(`RD$${precio.toFixed(2)}`, 130, yOffset);
-    doc.text(`RD$${subtotal.toFixed(2)}`, 170, yOffset);
-    yOffset += 8;
+    message += `${nombre} - Cantidad: ${item.cantidad} - Precio: RD$${precio.toFixed(2)} - Subtotal: RD$${subtotal.toFixed(2)}\n`;
   });
 
-  // Cálculo y muestra del total
+  // Total
   const totalAmount = orderDetails.items.reduce(
     (acc, item) => acc + item.cantidad * item.producto.precio,
     0
   );
-  doc.setFontSize(14);
-  doc.text(`Total: RD$${totalAmount.toFixed(2)}`, 20, yOffset + 10);
+  message += `\n*Total:* RD$${totalAmount.toFixed(2)}`;
 
-  // Crear directorio temporal para almacenar el PDF
-  const tempDir = path.join(process.cwd(), "tmp");
-  await fs.mkdir(tempDir, { recursive: true });
-  const filePath = path.join(tempDir, `${orderDetails.id}.pdf`);
-
-  // Generar y escribir el PDF
-  const pdfBuffer = doc.output("arraybuffer");
-  await fs.writeFile(filePath, Buffer.from(pdfBuffer));
-  console.log(`PDF generado en: ${filePath}`);
-  return filePath;
+  // URL de WhatsApp con el mensaje
+  const encodedMessage = encodeURIComponent(message);
+  const phoneNumber = "+1XXXXXXXXXX"; // Aquí debes colocar el número de teléfono al que deseas enviar el mensaje.
+  return `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
 };
 
 export async function POST(req: Request) {
@@ -272,15 +237,16 @@ export async function POST(req: Request) {
       )
     );
 
-    // Obtener detalles completos de la orden y generar el PDF
+    // Obtener detalles completos de la orden
     const orderDetails = await getOrderDetails(order.id);
     if (!orderDetails) {
       throw new Error("No se pudo obtener los detalles del pedido");
     }
-    const pdfPath = await generatePDF(orderDetails);
-    console.log(`PDF Path: ${pdfPath}`);
 
-    return NextResponse.json({ pdfUrl: pdfPath }, { status: 200 });
+    // Generar el mensaje de WhatsApp
+    const whatsappUrl = generateWhatsAppMessage(orderDetails);
+
+    return NextResponse.json({ whatsappUrl }, { status: 200 });
   } catch (error) {
     console.error("Error en checkout:", error);
     const message =
