@@ -297,7 +297,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             <p>Arlin Glam Care</p>
             <p>Cuidando tu belleza</p>
             <p>Tel: +1 (829) 782-8831</p>
-            <p>info@arlinglam.com</p>
+            <p>arlinglowcare@gmail.com</p>
           </div>
         </div>
       </div>
