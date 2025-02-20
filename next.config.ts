@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
   i18n: {
     locales: ['es'],
     defaultLocale: 'es',
+  },
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.(ico|png|jpg|jpeg|gif|svg)$/,
+      type: 'asset/resource'
+    });
+    return config;
   }
 };
 

@@ -4,16 +4,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { randomUUID } from "crypto";
-import { jsPDF } from "jspdf";
-import fs from "fs/promises";
-import path from "path";
 
 interface AcuerdoItem {
   id: string;
   cantidad: number;
   precio: number;
-  nombre?: string;
 }
 
 interface AcuerdoBody {
@@ -22,269 +17,220 @@ interface AcuerdoBody {
   total: number;
 }
 
-interface Cliente {
-  nombre: string;
-  email: string;
-}
-
-interface Direccion {
-  calle: string;
-  provincia: string;
-  municipio: string;
-  codigoPostal: string | null;
-}
-
-interface Producto {
+interface ProductoInfo {
   nombre: string;
   precio: number;
 }
 
-interface Item {
-  cantidad: number;
-  producto: Producto;
-}
-
-interface OrderDetails {
-  id: string;
-  cliente: Cliente;
-  direccion: Direccion;
-  items: Item[];
-}
-
+const PHONE_NUMBER = "18297828831";
 const MIN_AMOUNT_DOP = 50;
-const PENDING_ORDER_TIMEOUT = 30 * 24 * 60 * 60 * 1000; // 30 días en milisegundos
 
 /**
- * Obtiene los detalles completos de un pedido, incluyendo cliente, dirección e ítems.
- * @param orderId - El ID del pedido.
- * @returns Los detalles del pedido o null si no se encuentra.
+ * Genera un mensaje de WhatsApp con los detalles del pedido.
  */
-const getOrderDetails = async (
-  orderId: string
-): Promise<OrderDetails | null> => {
-  return (await prisma.pedido.findUnique({
-    where: { id: orderId },
-    include: {
-      cliente: { select: { nombre: true, email: true } },
-      direccion: {
-        select: {
-          calle: true,
-          provincia: true,
-          municipio: true,
-          codigoPostal: true,
-        },
-      },
-      items: {
-        include: {
-          producto: { select: { nombre: true, precio: true } },
-        },
-      },
-    },
-  })) as OrderDetails | null;
-};
-
-/**
- * Genera un reporte PDF de la orden con un formato mejorado, incluyendo encabezado,
- * datos del cliente, dirección y una tabla de ítems.
- * @param orderDetails - Los detalles de la orden.
- * @returns La ruta del archivo PDF generado.
- */
-const generatePDF = async (orderDetails: OrderDetails): Promise<string> => {
-  const doc = new jsPDF();
-
-  // Encabezado principal
-  doc.setFontSize(18);
-  doc.text("Orden de Compra", 105, 15, { align: "center" });
-
-  // Información de la orden
-  doc.setFontSize(12);
-  doc.text(`Número de Orden: ${orderDetails.id}`, 20, 25);
-  doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 20, 32);
-
-  // Datos del cliente
-  doc.text(`Cliente: ${orderDetails.cliente.nombre}`, 20, 40);
-  doc.text(`Email: ${orderDetails.cliente.email}`, 20, 47);
-
-  // Datos de la dirección
-  doc.text("Dirección de Envío:", 20, 55);
-  doc.text(
-    `${orderDetails.direccion.calle}, ${orderDetails.direccion.municipio}, ${orderDetails.direccion.provincia}`,
-    20,
-    62
-  );
-  if (orderDetails.direccion.codigoPostal) {
-    doc.text(`Código Postal: ${orderDetails.direccion.codigoPostal}`, 20, 69);
-  }
-
-  // Línea separadora
-  doc.line(20, 75, 190, 75);
-
-  // Encabezado de la tabla de ítems
-  doc.text("Producto", 20, 85);
-  doc.text("Cantidad", 100, 85);
-  doc.text("Precio Unitario", 130, 85);
-  doc.text("Subtotal", 170, 85);
-
-  // Lista de ítems
-  let yOffset = 95;
-  orderDetails.items.forEach((item) => {
-    const { nombre, precio } = item.producto;
-    const subtotal = item.cantidad * precio;
-    doc.text(nombre, 20, yOffset);
-    doc.text(`${item.cantidad}`, 100, yOffset);
-    doc.text(`RD$${precio.toFixed(2)}`, 130, yOffset);
-    doc.text(`RD$${subtotal.toFixed(2)}`, 170, yOffset);
-    yOffset += 8;
+const generateWhatsAppMessage = async (
+  items: AcuerdoItem[],
+  userId: string,
+  direccionId: string,
+  total: number
+): Promise<string> => {
+  // Obtener datos del usuario
+  const usuario = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { nombre: true, email: true }
   });
 
-  // Cálculo y muestra del total
-  const totalAmount = orderDetails.items.reduce(
-    (acc, item) => acc + item.cantidad * item.producto.precio,
-    0
+  // Obtener dirección
+  const direccion = await prisma.direccion.findUnique({
+    where: { id: direccionId },
+    select: { calle: true, provincia: true, municipio: true, codigoPostal: true }
+  });
+
+  if (!usuario || !direccion) {
+    throw new Error("No se pudieron obtener los datos del usuario o dirección");
+  }
+
+  // Obtener detalles de productos
+  const productos = await Promise.all(
+    items.map(async (item) => {
+      const producto = await prisma.producto.findUnique({
+        where: { id: item.id },
+        select: { nombre: true, precio: true }
+      }) as ProductoInfo | null;
+
+      if (!producto) {
+        return null;
+      }
+
+      return {
+        nombre: producto.nombre,
+        precio: producto.precio,
+        cantidad: item.cantidad,
+        subtotal: producto.precio * item.cantidad
+      };
+    })
   );
-  doc.setFontSize(14);
-  doc.text(`Total: RD$${totalAmount.toFixed(2)}`, 20, yOffset + 10);
 
-  // Crear directorio temporal para almacenar el PDF
-  const tempDir = path.join(process.cwd(), "tmp");
-  await fs.mkdir(tempDir, { recursive: true });
-  const filePath = path.join(tempDir, `${orderDetails.id}.pdf`);
+  let message = `*Nueva Solicitud de Pedido*\n`;
+  message += `Fecha: ${new Date().toLocaleDateString()}\n\n`;
 
-  // Generar y escribir el PDF
-  const pdfBuffer = doc.output("arraybuffer");
-  await fs.writeFile(filePath, Buffer.from(pdfBuffer));
-  console.log(`PDF generado en: ${filePath}`);
-  return filePath;
+  // Datos del cliente
+  message += `*Cliente:* ${usuario.nombre}\n`;
+  message += `*Email:* ${usuario.email}\n\n`;
+
+  // Datos de la dirección
+  message += `*Dirección de Envío:*\n`;
+  message += `${direccion.calle}, ${direccion.municipio}, ${direccion.provincia}\n`;
+  if (direccion.codigoPostal) {
+    message += `Código Postal: ${direccion.codigoPostal}\n`;
+  }
+
+  // Lista de productos
+  message += `\n*Productos:*\n`;
+  productos.forEach((producto) => {
+    if (producto) {
+      message += `${producto.nombre} - Cantidad: ${producto.cantidad} - Precio: RD$${producto.precio.toFixed(2)} - Subtotal: RD$${producto.subtotal.toFixed(2)}\n`;
+    }
+  });
+
+  // Total
+  message += `\n*Total:* RD$${total.toFixed(2)}`;
+  message += `\n\n*Estado:* Pendiente de confirmación`;
+
+  const encodedMessage = encodeURIComponent(message);
+  return `https://wa.me/${PHONE_NUMBER}?text=${encodedMessage}`;
 };
 
 export async function POST(req: Request) {
   try {
-    // Validar sesión del usuario
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Sesión no válida" },
+        { status: 401 }
+      );
     }
 
-    // Extraer y validar el cuerpo de la solicitud
-    const body = (await req.json()) as AcuerdoBody;
-    if (
-      !body.items ||
-      body.items.length === 0 ||
-      !body.direccionId ||
-      !body.total
-    ) {
+    const body = await req.json() as AcuerdoBody;
+
+    // Validaciones básicas
+    if (!body.items?.length) {
       return NextResponse.json(
-        { error: "Datos incompletos", body },
+        { error: "No hay productos en el carrito" },
         { status: 400 }
       );
     }
+
+    if (!body.direccionId) {
+      return NextResponse.json(
+        { error: "No se ha seleccionado una dirección de envío" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof body.total !== 'number' || isNaN(body.total) || body.total <= 0) {
+      return NextResponse.json(
+        { error: "El total del pedido es inválido" },
+        { status: 400 }
+      );
+    }
+
     if (body.total < MIN_AMOUNT_DOP) {
       return NextResponse.json(
-        { error: `El monto mínimo de compra es RD$${MIN_AMOUNT_DOP}.00`, body },
+        { error: `El monto mínimo de compra es RD$${MIN_AMOUNT_DOP}.00` },
         { status: 400 }
       );
     }
 
-    // Verificar existencias de cada producto
-    const productos = await Promise.all(
-      body.items.map((item) =>
-        prisma.producto.findUnique({
+    // Verificar existencias y validar productos
+    const productosValidacion = await Promise.all(
+      body.items.map(async (item) => {
+        const producto = await prisma.producto.findUnique({
           where: { id: item.id },
-          select: { id: true, existencias: true, nombre: true },
-        })
-      )
-    );
-    const stockInsuficiente = productos.find((producto, index) => {
-      if (!producto) return true;
-      return producto.existencias < body.items[index].cantidad;
-    });
-    if (stockInsuficiente) {
-      return NextResponse.json(
-        { error: "Stock insuficiente para algunos productos", body },
-        { status: 400 }
-      );
-    }
+          select: { 
+            id: true, 
+            existencias: true, 
+            nombre: true,
+            activo: true,
+            precio: true 
+          },
+        });
 
-    // Verificar si existe un pedido pendiente
-    const pendingOrder = await prisma.pedido.findFirst({
-      where: {
-        clienteId: session.user.id,
-        estado: "PENDIENTE",
-        estadoPago: "PENDIENTE",
-        creadoEl: { gte: new Date(Date.now() - PENDING_ORDER_TIMEOUT) },
-      },
-    });
-    if (pendingOrder) {
+        if (!producto) {
+          return {
+            error: true,
+            mensaje: `El producto con ID ${item.id} no existe en el catálogo`,
+            id: item.id,
+            cantidadSolicitada: item.cantidad
+          };
+        }
+
+        if (!producto.activo) {
+          return {
+            error: true,
+            mensaje: `El producto "${producto.nombre}" no está disponible actualmente`,
+            id: item.id,
+            cantidadSolicitada: item.cantidad
+          };
+        }
+
+        if (producto.existencias < item.cantidad) {
+          return {
+            error: true,
+            mensaje: `Stock insuficiente para "${producto.nombre}". Disponible: ${producto.existencias}, Solicitado: ${item.cantidad}`,
+            id: item.id,
+            cantidadSolicitada: item.cantidad,
+            existencias: producto.existencias
+          };
+        }
+
+        return {
+          error: false,
+          producto,
+          cantidadSolicitada: item.cantidad
+        };
+      })
+    );
+
+    // Verificar errores en productos
+    const productoConError = productosValidacion.find(item => item.error);
+    if (productoConError) {
       return NextResponse.json(
         {
-          error: "Ya tienes un pedido pendiente en proceso",
-          orderId: pendingOrder.id,
-          body,
+          error: productoConError.mensaje,
+          detalles: {
+            productoId: productoConError.id,
+            cantidadSolicitada: productoConError.cantidadSolicitada,
+            existencias: 'existencias' in productoConError ? productoConError.existencias : 0
+          }
         },
         { status: 400 }
       );
     }
 
-    // Cancelar pedidos pendientes que excedan el tiempo límite
-    await prisma.pedido.updateMany({
-      where: {
-        clienteId: session.user.id,
-        estado: "PENDIENTE",
-        estadoPago: "PENDIENTE",
-        creadoEl: { lt: new Date(Date.now() - PENDING_ORDER_TIMEOUT) },
-      },
-      data: {
-        estado: "CANCELADO",
-        estadoPago: "FALLIDO",
-      },
-    });
-
-    // Crear el nuevo pedido
-    const order = await prisma.pedido.create({
-      data: {
-        numero: `ORD-${randomUUID().slice(0, 8)}`,
-        clienteId: session.user.id,
-        direccionId: body.direccionId,
-        subtotal: body.total,
-        impuestos: 0,
-        costoEnvio: 0,
-        total: body.total,
-        estado: "PENDIENTE",
-        estadoPago: "PENDIENTE",
-        items: {
-          create: body.items.map((item) => ({
-            productoId: item.id,
-            cantidad: item.cantidad,
-            precioUnit: item.precio,
-            subtotal: item.precio * item.cantidad,
-          })),
-        },
-      },
-    });
-
-    // Actualizar el stock de los productos adquiridos
-    await Promise.all(
-      body.items.map((item) =>
-        prisma.producto.update({
-          where: { id: item.id },
-          data: { existencias: { decrement: item.cantidad } },
-        })
-      )
+    // Generar enlace de WhatsApp
+    const whatsappUrl = await generateWhatsAppMessage(
+      body.items,
+      session.user.id,
+      body.direccionId,
+      body.total
     );
 
-    // Obtener detalles completos de la orden y generar el PDF
-    const orderDetails = await getOrderDetails(order.id);
-    if (!orderDetails) {
-      throw new Error("No se pudo obtener los detalles del pedido");
-    }
-    const pdfPath = await generatePDF(orderDetails);
-    console.log(`PDF Path: ${pdfPath}`);
+    return NextResponse.json({
+      success: true,
+      whatsappUrl,
+      message: "Solicitud de pedido generada. Por favor, confirme a través de WhatsApp.",
+    });
 
-    return NextResponse.json({ pdfUrl: pdfPath }, { status: 200 });
   } catch (error) {
-    console.error("Error en checkout:", error);
-    const message =
-      error instanceof Error ? error.message : "Error al procesar el pedido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Error en la generación del pedido:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Error al procesar la solicitud",
+      },
+      { status: 500 }
+    );
   }
 }

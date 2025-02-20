@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import OrderSummary from "./_components/OrderSummary";
@@ -17,8 +16,6 @@ interface CartItem {
   cantidad: number;
 }
 
-const PHONE_NUMBER = "18297828831"; // Número de WhatsApp
-
 const sendToWhatsApp = async (
   items: CartItem[],
   selectedAddress: string,
@@ -29,51 +26,119 @@ const sendToWhatsApp = async (
     return;
   }
 
+  if (items.length === 0) {
+    toast.error("Tu carrito está vacío.");
+    return;
+  }
+
+  const loadingToast = toast.loading("Generando solicitud de pedido...");
+
   try {
+    const total = items.reduce(
+      (acc, item) => acc + (item.precio * item.cantidad),
+      0
+    );
+
+    const orderData = {
+      items: items.map(({ id, cantidad, precio }) => ({
+        id,
+        cantidad,
+        precio: Number(precio),
+      })),
+      direccionId: selectedAddress,
+      total: Number(total),
+    };
+
+    // Primero enviamos el mensaje de WhatsApp
     const response = await fetch("/api/acuerdopago", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: items.map(({ id, cantidad, precio }) => ({
-          id,
-          cantidad,
-          precio,
-        })),
-        direccionId: selectedAddress,
-        total: items.reduce(
-          (acc, item) => acc + item.precio * item.cantidad,
-          0
-        ),
-      }),
+      headers: { 
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(orderData),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Error al generar el reporte");
+      // Si hay detalles del error, mostrarlos
+      if (data.detalles) {
+        // Actualizar el carrito si es necesario
+        if (data.detalles.existencias === 0) {
+          // Remover el producto del carrito si ya no existe
+          const newItems = items.filter(item => item.id !== data.detalles.productoId);
+          localStorage.setItem("cart", JSON.stringify(newItems));
+          window.dispatchEvent(new Event("cartUpdated"));
+        } else if (data.detalles.existencias < data.detalles.cantidadSolicitada) {
+          // Actualizar la cantidad al máximo disponible
+          const newItems = items.map(item => 
+            item.id === data.detalles.productoId 
+              ? { ...item, cantidad: data.detalles.existencias }
+              : item
+          );
+          localStorage.setItem("cart", JSON.stringify(newItems));
+          window.dispatchEvent(new Event("cartUpdated"));
+        }
+      }
+      
+      throw new Error(data.error || "Error al procesar el pedido");
     }
 
-    const { pdfUrl } = await response.json();
-    clearCart();
+    if (!data.whatsappUrl) {
+      throw new Error("No se pudo generar el enlace de WhatsApp");
+    }
 
-    const message = `Aquí está tu orden de compra: ${pdfUrl}`;
-    window.open(
-      `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(message)}`,
-      "_blank"
-    );
+    // Cerramos el toast de carga
+    toast.dismiss(loadingToast);
+    
+    // Mostramos mensaje de éxito
+    toast.success("Solicitud de pedido generada. Por favor, confirme a través de WhatsApp.");
+
+    // Abrimos WhatsApp en una nueva pestaña
+    window.open(data.whatsappUrl, "_blank");
+
+    // Confirmamos la orden y limpiamos el carrito
+    try {
+      const confirmResponse = await fetch("/api/acuerdopago/confirmar", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (confirmResponse.ok) {
+        // Si la confirmación fue exitosa, limpiamos el carrito
+        clearCart();
+        toast.success("¡Pedido confirmado exitosamente!");
+      } else {
+        toast.error("Error al confirmar el pedido. Por favor, contacte al administrador.");
+      }
+    } catch (confirmError) {
+      console.error("Error al confirmar el pedido:", confirmError);
+      toast.error("Error al confirmar el pedido. Por favor, contacte al administrador.");
+    }
+
   } catch (error) {
-    console.error("Error al enviar la orden por WhatsApp:", error);
-    toast.error(`Error al enviar la orden: ${error}`);
+    console.error("Error al generar la solicitud de pedido:", error);
+    
+    // Cerramos el toast de carga
+    toast.dismiss(loadingToast);
+    
+    // Mostramos el error
+    toast.error(error instanceof Error ? error.message : "Error al procesar el pedido");
   }
 };
 
 export default function AcuerdoPage() {
-  const { status } = useSession();
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (isLoading) return;
+
     const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
     if (cartItems.length === 0) {
       router.push("/catalogo");
@@ -81,14 +146,12 @@ export default function AcuerdoPage() {
     }
     setItems(cartItems);
     setIsLoading(false);
-  }, [router]);
+  }, [isLoading, router]);
 
-  useEffect(() => {
-    if (status === "unauthenticated") router.push("/login");
-  }, [status, router]);
-
-  const handleAddressSelect = (addressId: string) =>
+  const handleAddressSelect = (addressId: string) => {
     setSelectedAddress(addressId);
+    toast.success("Dirección seleccionada correctamente");
+  };
 
   const clearCart = () => {
     localStorage.removeItem("cart");
@@ -96,7 +159,7 @@ export default function AcuerdoPage() {
     window.dispatchEvent(new Event("cartUpdated"));
   };
 
-  if (isLoading || status === "loading") {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
@@ -106,7 +169,6 @@ export default function AcuerdoPage() {
 
   return (
     <>
-      {/* El Toaster se encargará de mostrar los toast */}
       <Toaster position="top-right" />
       <motion.div
         initial={{ opacity: 0 }}
@@ -122,7 +184,8 @@ export default function AcuerdoPage() {
           <div className="flex justify-center lg:col-span-2 mt-8">
             <button
               onClick={() => sendToWhatsApp(items, selectedAddress, clearCart)}
-              className="bg-green-500 text-white py-4 px-8 rounded-lg text-lg font-bold flex items-center gap-2 transition-transform transform hover:scale-105 hover:bg-green-600 shadow-lg"
+              className="bg-green-500 text-white py-4 px-8 rounded-lg text-lg font-bold flex items-center gap-2 transition-transform transform hover:scale-105 hover:bg-green-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!selectedAddress || items.length === 0}
             >
               <FaWhatsapp className="text-2xl" />
               <span>Enviar Orden por WhatsApp</span>
