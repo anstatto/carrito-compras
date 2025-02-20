@@ -36,7 +36,7 @@ export default function AddressSelector({ onSelect, selected }: AddressSelectorP
 
   const fetchDirecciones = useCallback(async () => {
     if (status !== 'authenticated') {
-      console.log('Usuario no autenticado') // Debug
+     // console.log('Usuario no autenticado') // Debug
       return
     }
 
@@ -44,7 +44,7 @@ export default function AddressSelector({ onSelect, selected }: AddressSelectorP
       setIsLoading(true)
       setError(null)
       
-      console.log('Iniciando fetch de direcciones') // Debug
+      //console.log('Iniciando fetch de direcciones') // Debug
       
       const res = await fetch('/api/direcciones', {
         headers: {
@@ -53,7 +53,7 @@ export default function AddressSelector({ onSelect, selected }: AddressSelectorP
         credentials: 'include'
       })
 
-      console.log('Status de respuesta:', res.status) // Debug
+      //console.log('Status de respuesta:', res.status) // Debug
 
       if (!res.ok) {
         const errorData = await res.json()
@@ -61,7 +61,7 @@ export default function AddressSelector({ onSelect, selected }: AddressSelectorP
       }
 
       const data = await res.json()
-      console.log('Datos recibidos:', data) // Debug
+      //console.log('Datos recibidos:', data) // Debug
 
       if (Array.isArray(data)) {
         setDirecciones(data)
