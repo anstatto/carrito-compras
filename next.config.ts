@@ -19,13 +19,13 @@ const nextConfig: NextConfig = {
     locales: ['es'],
     defaultLocale: 'es',
   },
-  // webpack: (config) => {
-  //   config.module.rules.push({
-  //     test: /\.(ico|png|jpg|jpeg|gif|svg)$/,
-  //     type: 'asset/resource'
-  //   });
-  //   return config;
-  // }
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.(ico|png|jpg|jpeg|gif|svg)$/,
+      type: 'asset/resource'
+    });
+    return config;
+  }
 };
 
 export default nextConfig;
