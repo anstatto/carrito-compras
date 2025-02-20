@@ -36,7 +36,7 @@ const sendToWhatsApp = async (
 
   try {
     const total = items.reduce(
-      (acc, item) => acc + (item.precio * item.cantidad),
+      (acc, item) => acc + item.precio * item.cantidad,
       0
     );
 
@@ -50,10 +50,10 @@ const sendToWhatsApp = async (
       total: Number(total),
     };
 
-    // Primero enviamos el mensaje de WhatsApp
+    // Enviamos el mensaje de WhatsApp
     const response = await fetch("/api/acuerdopago", {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(orderData),
@@ -62,26 +62,24 @@ const sendToWhatsApp = async (
     const data = await response.json();
 
     if (!response.ok) {
-      // Si hay detalles del error, mostrarlos
+      // Manejar errores de inventario
       if (data.detalles) {
-        // Actualizar el carrito si es necesario
-        if (data.detalles.existencias === 0) {
-          // Remover el producto del carrito si ya no existe
-          const newItems = items.filter(item => item.id !== data.detalles.productoId);
+        const { existencias, productoId, cantidadSolicitada } = data.detalles;
+        
+        if (existencias === 0) {
+          const newItems = items.filter(item => item.id !== productoId);
           localStorage.setItem("cart", JSON.stringify(newItems));
           window.dispatchEvent(new Event("cartUpdated"));
-        } else if (data.detalles.existencias < data.detalles.cantidadSolicitada) {
-          // Actualizar la cantidad al máximo disponible
-          const newItems = items.map(item => 
-            item.id === data.detalles.productoId 
-              ? { ...item, cantidad: data.detalles.existencias }
+        } else if (existencias < cantidadSolicitada) {
+          const newItems = items.map(item =>
+            item.id === productoId
+              ? { ...item, cantidad: existencias }
               : item
           );
           localStorage.setItem("cart", JSON.stringify(newItems));
           window.dispatchEvent(new Event("cartUpdated"));
         }
       }
-      
       throw new Error(data.error || "Error al procesar el pedido");
     }
 
@@ -89,44 +87,30 @@ const sendToWhatsApp = async (
       throw new Error("No se pudo generar el enlace de WhatsApp");
     }
 
-    // Cerramos el toast de carga
     toast.dismiss(loadingToast);
-    
-    // Mostramos mensaje de éxito
     toast.success("Solicitud de pedido generada. Por favor, confirme a través de WhatsApp.");
 
     // Abrimos WhatsApp en una nueva pestaña
     window.open(data.whatsappUrl, "_blank");
 
-    // Confirmamos la orden y limpiamos el carrito
-    try {
-      const confirmResponse = await fetch("/api/acuerdopago/confirmar", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(orderData),
-      });
+    // Confirmamos la orden
+    const confirmResponse = await fetch("/api/acuerdopago/confirmar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(orderData),
+    });
 
-      if (confirmResponse.ok) {
-        // Si la confirmación fue exitosa, limpiamos el carrito
-        clearCart();
-        toast.success("¡Pedido confirmado exitosamente!");
-      } else {
-        toast.error("Error al confirmar el pedido. Por favor, contacte al administrador.");
-      }
-    } catch (confirmError) {
-      console.error("Error al confirmar el pedido:", confirmError);
+    if (confirmResponse.ok) {
+      clearCart();
+      toast.success("¡Pedido confirmado exitosamente!");
+    } else {
       toast.error("Error al confirmar el pedido. Por favor, contacte al administrador.");
     }
-
   } catch (error) {
     console.error("Error al generar la solicitud de pedido:", error);
-    
-    // Cerramos el toast de carga
     toast.dismiss(loadingToast);
-    
-    // Mostramos el error
     toast.error(error instanceof Error ? error.message : "Error al procesar el pedido");
   }
 };
@@ -139,31 +123,25 @@ export default function AcuerdoPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Redirigir si no está autenticado
     if (status === "unauthenticated") {
       router.push("/login");
       return;
     }
 
-    // Solo cargar items si está autenticado
     if (status === "authenticated") {
-      const loadCartItems = () => {
-        try {
-          const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
-          if (cartItems.length === 0) {
-            router.push("/catalogo");
-            return;
-          }
-          setItems(cartItems);
-        } catch (error) {
-          console.error("Error loading cart items:", error);
-          toast.error("Error al cargar los productos del carrito");
-        } finally {
-          setIsLoading(false);
+      try {
+        const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
+        if (cartItems.length === 0) {
+          router.push("/catalogo");
+          return;
         }
-      };
-
-      loadCartItems();
+        setItems(cartItems);
+      } catch (error) {
+        console.error("Error loading cart items:", error);
+        toast.error("Error al cargar los productos del carrito");
+      } finally {
+        setIsLoading(false);
+      }
     }
   }, [status, router]);
 
@@ -179,7 +157,6 @@ export default function AcuerdoPage() {
     router.push("/catalogo");
   };
 
-  // Mostrar spinner mientras carga
   if (status === "loading" || isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -188,7 +165,6 @@ export default function AcuerdoPage() {
     );
   }
 
-  // No mostrar nada si no está autenticado
   if (!session) {
     return null;
   }
