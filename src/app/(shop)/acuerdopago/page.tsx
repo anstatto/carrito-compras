@@ -137,16 +137,24 @@ export default function AcuerdoPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isLoading) return;
+    const loadCartItems = () => {
+      try {
+        const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
+        if (cartItems.length === 0) {
+          router.push("/catalogo");
+          return;
+        }
+        setItems(cartItems);
+      } catch (error) {
+        console.error("Error loading cart items:", error);
+        toast.error("Error al cargar los productos del carrito");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
-    if (cartItems.length === 0) {
-      router.push("/catalogo");
-      return;
-    }
-    setItems(cartItems);
-    setIsLoading(false);
-  }, [isLoading, router]);
+    loadCartItems();
+  }, [router]);
 
   const handleAddressSelect = (addressId: string) => {
     setSelectedAddress(addressId);
@@ -157,6 +165,7 @@ export default function AcuerdoPage() {
     localStorage.removeItem("cart");
     setItems([]);
     window.dispatchEvent(new Event("cartUpdated"));
+    router.push("/catalogo");
   };
 
   if (isLoading) {
