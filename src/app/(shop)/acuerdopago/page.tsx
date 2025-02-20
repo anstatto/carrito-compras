@@ -132,37 +132,39 @@ const sendToWhatsApp = async (
 };
 
 export default function AcuerdoPage() {
-  const { status } = useSession();
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [items, setItems] = useState<CartItem[]>([]);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (status === "loading") return;
-
+    // Redirigir si no está autenticado
     if (status === "unauthenticated") {
       router.push("/login");
       return;
     }
 
-    const loadCartItems = () => {
-      try {
-        const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
-        if (cartItems.length === 0) {
-          router.push("/catalogo");
-          return;
+    // Solo cargar items si está autenticado
+    if (status === "authenticated") {
+      const loadCartItems = () => {
+        try {
+          const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
+          if (cartItems.length === 0) {
+            router.push("/catalogo");
+            return;
+          }
+          setItems(cartItems);
+        } catch (error) {
+          console.error("Error loading cart items:", error);
+          toast.error("Error al cargar los productos del carrito");
+        } finally {
+          setIsLoading(false);
         }
-        setItems(cartItems);
-      } catch (error) {
-        console.error("Error loading cart items:", error);
-        toast.error("Error al cargar los productos del carrito");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      };
 
-    loadCartItems();
+      loadCartItems();
+    }
   }, [status, router]);
 
   const handleAddressSelect = (addressId: string) => {
@@ -177,12 +179,18 @@ export default function AcuerdoPage() {
     router.push("/catalogo");
   };
 
-  if (isLoading || status === "loading") {
+  // Mostrar spinner mientras carga
+  if (status === "loading" || isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
       </div>
     );
+  }
+
+  // No mostrar nada si no está autenticado
+  if (!session) {
+    return null;
   }
 
   return (
@@ -203,7 +211,7 @@ export default function AcuerdoPage() {
             <button
               onClick={() => sendToWhatsApp(items, selectedAddress, clearCart)}
               className="bg-green-500 text-white py-4 px-8 rounded-lg text-lg font-bold flex items-center gap-2 transition-transform transform hover:scale-105 hover:bg-green-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!selectedAddress || items.length === 0 || status !== "authenticated"}
+              disabled={!selectedAddress || items.length === 0}
             >
               <FaWhatsapp className="text-2xl" />
               <span>Enviar Orden por WhatsApp</span>
