@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
-import ProductContent from "@/app/components/products/ProductContent";
+import ProductContent from "@/components/products/ProductContent";
 import Loading from "./loading";
 import Link from "next/link";
 import { ProductView } from "@/interfaces/Product";

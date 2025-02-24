@@ -15,6 +15,7 @@ export const useNotification = () => {
         color: '#fff',
         borderRadius: '10px',
       },
+      position: 'bottom-left', // Cambiar la posición aquí
     })
   }
 
@@ -27,6 +28,7 @@ export const useNotification = () => {
         color: '#fff',
         borderRadius: '10px',
       },
+      position: 'bottom-left', // Cambiar la posición aquí
     })
   }
 
@@ -39,8 +41,9 @@ export const useNotification = () => {
         color: '#fff',
         borderRadius: '10px',
       },
+      position: 'bottom-left', // Cambiar la posición aquí
     })
   }
 
   return { showSuccess, showError, showInfo }
-} 
+}

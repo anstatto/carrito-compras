@@ -3,18 +3,18 @@ import { PrismaClient, TipoPago, MarcaTarjeta } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const CATEGORIAS = [
-  // {
-  //   nombre: "Facial",
-  //   descripcion: "Productos para el cuidado facial",
-  //   imagen: "/categorias/facial.jpg",
-  //   slug: "facial",
-  // },
-  // {
-  //   nombre: "Corporal",
-  //   descripcion: "Productos para el cuidado corporal",
-  //   imagen: "/categorias/corporal.jpg",
-  //   slug: "corporal",
-  // },
+  {
+    nombre: "Facial",
+    descripcion: "Productos para el cuidado facial",
+    imagen: "/categorias/facial.jpg",
+    slug: "facial",
+  },
+  {
+    nombre: "Corporal",
+    descripcion: "Productos para el cuidado corporal",
+    imagen: "/categorias/corporal.jpg",
+    slug: "corporal",
+  },
   {
     nombre: "Cabello",
     descripcion: "Productos para el cuidado del cabello",

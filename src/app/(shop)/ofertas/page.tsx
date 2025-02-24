@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { ProductView } from "@/interfaces/Product";
-import ProductCardOfert from "@/app/components/products/ProductCardOferta";
+import ProductCardOfert from "@/components/products/ProductCardOferta";
 
 type Product = ProductView;
 

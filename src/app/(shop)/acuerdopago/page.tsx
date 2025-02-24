@@ -147,7 +147,7 @@ export default function AcuerdoPage() {
 
   const handleAddressSelect = (addressId: string) => {
     setSelectedAddress(addressId);
-    toast.success("Dirección seleccionada correctamente");
+   // toast.success("Dirección seleccionada correctamente");
   };
 
   const clearCart = () => {

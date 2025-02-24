@@ -1,11 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { ProductView } from '@/interfaces/Product'
-import HeroSection from '@/app/components/home/HeroSection'
-import FeaturedProducts from '@/app/components/products/FeaturedProducts'
-import CategoriesSection from '@/app/components/home/CategoriesSection'
-import TestimonialsSection from '@/app/components/home/TestimonialsSection'
-import WhatsAppButton from '../components/home/WhatsAppButton'
-
+import HeroSection from '@/components/home/HeroSection'
+import FeaturedProducts from '@/components/products/FeaturedProducts'
+import CategoriesSection from '@/components/home/CategoriesSection'
+import TestimonialsSection from '@/components/home/TestimonialsSection'
+import WhatsAppButton from '@/components/home/WhatsAppButton'
 // Obtener productos destacados del servidor
 async function getFeaturedProducts() {
   try {

@@ -14,7 +14,7 @@ interface OrderCache {
   creadoEl: Date
   metodoPago: { tipo: TipoPago } | null
   cliente: { nombre: string; email: string }
-} 
+}
 
 // Actualizar tipo del caché
 let ordersCache: OrderCache[] | null = null
@@ -25,8 +25,16 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     const { searchParams } = new URL(request.url)
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
     
+    // Obtener los parámetros de búsqueda y convertir a tipos apropiados
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
+    const estado = searchParams.get('estado') || undefined // Filtro por estado
+    const metodoPago = searchParams.get('metodoPago') || undefined // Filtro por tipo de pago
+    const clienteNombre = searchParams.get('clienteNombre') || undefined // Filtro por nombre de cliente
+    const clienteEmail = searchParams.get('clienteEmail') || undefined // Filtro por email de cliente
+    const fechaDesde = searchParams.get('fechaDesde') ? new Date(searchParams.get('fechaDesde')!) : undefined // Filtro por fecha desde
+    const fechaHasta = searchParams.get('fechaHasta') ? new Date(searchParams.get('fechaHasta')!) : undefined // Filtro por fecha hasta
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'No autorizado' },
@@ -39,10 +47,20 @@ export async function GET(request: Request) {
       return NextResponse.json(ordersCache)
     }
 
+    // Construir filtros dinámicamente
+    const filtros: Record<string, unknown> = {
+      ...(estado && { estado }),
+      ...(metodoPago && { metodoPagoId: metodoPago }),
+      ...(clienteNombre && { cliente: { nombre: { contains: clienteNombre, mode: 'insensitive' } } }),
+      ...(clienteEmail && { cliente: { email: { contains: clienteEmail, mode: 'insensitive' } } }),
+      ...(fechaDesde && { creadoEl: { gte: fechaDesde } }),
+      ...(fechaHasta && { creadoEl: { lte: fechaHasta } })
+    }
+
     const pedidos = await prisma.pedido.findMany({
-      where: session.user.role === 'ADMIN' 
-        ? undefined 
-        : { clienteId: session.user.id },
+      where: session.user.role === 'ADMIN'
+        ? filtros
+        : { clienteId: session.user.id, ...filtros },
       select: {
         id: true,
         numero: true,
@@ -82,7 +100,7 @@ export async function GET(request: Request) {
       ordersCache = pedidos
       lastFetch = Date.now()
     }
-    
+
     return NextResponse.json(pedidos)
   } catch (error) {
     console.error('Error al obtener pedidos:', error)
@@ -96,7 +114,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'No autorizado' },
@@ -163,4 +181,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-} 
+}

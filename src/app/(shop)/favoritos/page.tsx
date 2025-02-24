@@ -1,7 +1,7 @@
 'use client'
 
 import { useFavorites } from '@/app/hooks/useFavorites'
-import ProductCard from '@/app/components/products/ProductCard'
+import ProductCard from '@/components/products/ProductCard'
 import { motion } from 'framer-motion'
 import { FaHeart } from 'react-icons/fa'
 import { MarcaProducto } from '@prisma/client'

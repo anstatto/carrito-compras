@@ -14,7 +14,7 @@ import { useRouter, usePathname } from 'next/navigation'
 
 export default function ProductsPage() {
   const { products, isLoading, fetchProducts, updateProduct, setProducts } = useProducts()
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage ] = useState(1)
   const [itemsPerPage] = useState(12)
   const [categories, setCategories] = useState([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -54,10 +54,10 @@ export default function ProductsPage() {
   const totalPages = Math.ceil(products.length / itemsPerPage)
 
   // Función para cambiar de página
-  const handlePageChange = (pageNumber: number) => {
-    setCurrentPage(pageNumber)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  // const handlePageChange = (pageNumber: number) => {
+  //   setCurrentPage(pageNumber)
+  //   window.scrollTo({ top: 0, behavior: 'smooth' })
+  // }
 
   const toggleProductStatus = async (productId: string, currentStatus: boolean) => {
     try {
@@ -371,7 +371,6 @@ export default function ProductsPage() {
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={handlePageChange}
               />
             </div>
           )}

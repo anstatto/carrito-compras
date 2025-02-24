@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { FaUser, FaEnvelope, FaPhone, FaSpinner } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
+import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
+import 'react-phone-number-input/style.css'
 
 interface UserProfile {
   nombre: string
@@ -18,6 +20,10 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [phone, setPhone] = useState<string | undefined>(profile?.telefono)
+  const [isPhoneValid, setIsPhoneValid] = useState(true)
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [lastNameError, setLastNameError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -34,6 +40,7 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error('Error al cargar perfil')
       const data = await res.json()
       setProfile(data)
+      setPhone(data.telefono)
     } catch (error) {
       toast.error('Error al cargar el perfil')
       console.error(error)
@@ -46,20 +53,46 @@ export default function ProfilePage() {
     e.preventDefault()
     setIsSaving(true)
 
+    if (!isValidPhoneNumber(phone ?? '')) {
+      setIsPhoneValid(false)
+      setIsSaving(false)
+      return
+    }
+
+    // Validar los nombres
+    const formData = new FormData(e.currentTarget)
+    const nombre = formData.get('nombre')?.toString() ?? ''
+    const apellido = formData.get('apellido')?.toString() ?? ''
+
+    if (/\d/.test(nombre)) {
+      setNameError('El nombre no puede contener números')
+      setIsSaving(false)
+      return
+    } else {
+      setNameError(null)
+    }
+
+    if (/\d/.test(apellido)) {
+      setLastNameError('El apellido no puede contener números')
+      setIsSaving(false)
+      return
+    } else {
+      setLastNameError(null)
+    }
+
     try {
-      const formData = new FormData(e.currentTarget)
       const data = {
-        nombre: formData.get('nombre'),
-        apellido: formData.get('apellido'),
-        telefono: formData.get('telefono')
+        nombre,
+        apellido,
+        telefono: phone,
       }
 
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       })
 
       if (!res.ok) throw new Error('Error al actualizar perfil')
@@ -72,6 +105,11 @@ export default function ProfilePage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handlePhoneChange = (value: string | undefined) => {
+    setPhone(value)
+    setIsPhoneValid(isValidPhoneNumber(value ?? ''))
   }
 
   if (isLoading) {
@@ -111,6 +149,9 @@ export default function ProfilePage() {
                     className="block w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                   />
                 </div>
+                {nameError && (
+                  <div className="text-red-600 text-sm mt-2">{nameError}</div>
+                )}
               </div>
 
               <div>
@@ -129,6 +170,9 @@ export default function ProfilePage() {
                     className="block w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                   />
                 </div>
+                {lastNameError && (
+                  <div className="text-red-600 text-sm mt-2">{lastNameError}</div>
+                )}
               </div>
             </div>
 
@@ -157,18 +201,23 @@ export default function ProfilePage() {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <FaPhone className="h-5 w-5 text-gray-400" />
                 </div>
-                <input
-                  type="tel"
-                  name="telefono"
-                  defaultValue={profile?.telefono}
+                <PhoneInput
+                  international
+                  defaultCountry="DO"
+                  value={phone}
+                  onChange={handlePhoneChange}
                   className="block w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  placeholder="Número de teléfono"
                 />
+                {!isPhoneValid && (
+                  <div className="text-red-600 text-sm mt-2">Número de teléfono inválido</div>
+                )}
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={isSaving}
+              disabled={isSaving || !isPhoneValid}
               className="w-full py-2 px-4 border border-transparent rounded-lg text-white bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50 transition-all duration-200 flex items-center justify-center gap-2"
             >
               {isSaving ? (
@@ -185,4 +234,4 @@ export default function ProfilePage() {
       </div>
     </div>
   )
-} 
+}

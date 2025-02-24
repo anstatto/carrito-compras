@@ -1,43 +1,61 @@
-interface PaginationProps {
+'use client'
+
+import { useSearchParams, useRouter } from 'next/navigation'
+import { FaChevronLeft, FaChevronRight } from 'react-icons/fa'
+
+type PaginationProps = {
   currentPage: number
   totalPages: number
-  onPageChange: (page: number) => void
 }
 
-export default function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+export default function Pagination({ currentPage, totalPages }: PaginationProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Refactorización de la función de cambio de página
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return; // Asegura que la página esté dentro del rango
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('pagina', page.toString())
+    router.push(`/catalogo?${params.toString()}`)
+  }
+
+  // Clases comunes para los botones
+  const buttonClasses = 'p-2 rounded-full bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors'
+
   return (
     <div className="flex justify-center items-center gap-2">
       <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 disabled:opacity-50 
-                 hover:bg-gray-200 transition-colors"
+        onClick={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage <= 1}
+        className={`${buttonClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
       >
-        Anterior
+        <FaChevronLeft className="w-5 h-5" />
       </button>
 
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+      {/* Paginas */}
+      {Array.from({ length: totalPages }, (_, i) => (
         <button
-          key={page}
-          onClick={() => onPageChange(page)}
-          className={`w-10 h-10 rounded-lg ${
-            currentPage === page
-              ? 'bg-pink-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          } transition-colors`}
+          key={i}
+          onClick={() => handlePageChange(i + 1)}
+          className={`w-10 h-10 rounded-full 
+                     ${currentPage === i + 1
+                       ? 'bg-pink-500 text-white'
+                       : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                     } transition-colors`}
         >
-          {page}
+          {i + 1}
         </button>
       ))}
 
       <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 disabled:opacity-50 
-                 hover:bg-gray-200 transition-colors"
+        onClick={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage >= totalPages}
+        className={`${buttonClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
       >
-        Siguiente
+        <FaChevronRight className="w-5 h-5" />
       </button>
     </div>
   )
-} 
+}
