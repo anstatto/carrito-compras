@@ -1,19 +1,21 @@
 'use client'
 
-import { FaShoppingCart, FaUsers, FaBox, FaDollarSign } from 'react-icons/fa'
+import { FaShoppingCart, FaUsers, FaBox, FaDollarSign, FaClock, FaChartLine } from 'react-icons/fa'
 
 const ICONS = {
   FaShoppingCart,
   FaUsers,
   FaBox,
-  FaDollarSign
+  FaDollarSign,
+  FaClock,
+  FaChartLine
 } as const
 
 interface CardProps {
   title: string
   value: string
   iconName: keyof typeof ICONS
-  color: 'blue' | 'green' | 'purple' | 'pink'
+  color: 'blue' | 'green' | 'purple' | 'pink' | 'yellow' | 'indigo'
 }
 
 const colorVariants = {
@@ -36,6 +38,16 @@ const colorVariants = {
     bg: 'bg-pink-500',
     text: 'text-pink-600',
     light: 'bg-pink-100'
+  },
+  yellow: {
+    bg: 'bg-yellow-500',
+    text: 'text-yellow-600',
+    light: 'bg-yellow-100'
+  },
+  indigo: {
+    bg: 'bg-indigo-500',
+    text: 'text-indigo-600',
+    light: 'bg-indigo-100'
   }
 }
 

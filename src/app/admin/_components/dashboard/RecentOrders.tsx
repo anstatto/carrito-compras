@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'react-hot-toast'
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { useRouter } from 'next/navigation'
 
 interface Order {
   id: string
@@ -16,6 +19,7 @@ interface Order {
 }
 
 export default function RecentOrders() {
+  const router = useRouter()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -25,10 +29,10 @@ export default function RecentOrders() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/orders?limit=5')
+      const res = await fetch('/api/orders?limit=5&sort=desc')
       if (!res.ok) throw new Error('Error al cargar pedidos')
       const data = await res.json()
-      setOrders(data)
+      setOrders(data.orders)
     } catch (error) {
       toast.error('Error al cargar los pedidos recientes')
       console.error(error)
@@ -65,22 +69,26 @@ export default function RecentOrders() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900">Pedidos Recientes</h3>
-      </div>
+    <div className="overflow-hidden">
       <div className="divide-y divide-gray-200">
         {orders.length === 0 ? (
           <p className="p-4 text-center text-gray-500">No hay pedidos recientes</p>
         ) : (
           orders.map((order) => (
-            <div key={order.id} className="p-4 hover:bg-gray-50 transition-colors">
+            <div 
+              key={order.id} 
+              className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+              onClick={() => router.push(`/admin/orders/${order.id}`)}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    Pedido {order.numero}
+                    Pedido #{order.numero}
                   </p>
                   <p className="text-sm text-gray-500">{order.cliente.nombre}</p>
+                  <p className="text-xs text-gray-400">
+                    {format(new Date(order.creadoEl), "d 'de' MMMM, HH:mm", { locale: es })}
+                  </p>
                 </div>
                 <div className="flex items-center gap-4">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.estado)}`}>
@@ -94,6 +102,14 @@ export default function RecentOrders() {
             </div>
           ))
         )}
+      </div>
+      <div className="p-4 border-t">
+        <button
+          onClick={() => router.push('/admin/orders')}
+          className="text-sm text-pink-600 hover:text-pink-700 font-medium"
+        >
+          Ver todos los pedidos →
+        </button>
       </div>
     </div>
   )

@@ -2,80 +2,69 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from '@/lib/auth'
-import { EstadoPedido, TipoPago } from "@prisma/client"
-import { Decimal } from "@prisma/client/runtime/library"
+import { Prisma, EstadoPedido, TipoPago } from "@prisma/client"
 
-// Definir interfaz para el tipo de caché
-interface OrderCache {
-  id: string
-  numero: string
-  total: Decimal
-  estado: EstadoPedido
-  creadoEl: Date
-  metodoPago: { tipo: TipoPago } | null
-  cliente: { nombre: string; email: string }
+interface OrderItem {
+  productoId: string;
+  cantidad: number;
+  precioUnit: Prisma.Decimal | number | string;
+  subtotal?: Prisma.Decimal;
 }
 
-// Actualizar tipo del caché
-let ordersCache: OrderCache[] | null = null
-let lastFetch = 0
-const CACHE_DURATION = 1000 * 60 * 5 // 5 minutos
+interface CreateOrderData {
+  clienteId: string;
+  items: OrderItem[];
+  metodoPago: TipoPago;
+  total: number;
+}
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
     const { searchParams } = new URL(request.url)
     
-    // Obtener los parámetros de búsqueda y convertir a tipos apropiados
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
-    const estado = searchParams.get('estado') || undefined // Filtro por estado
-    const metodoPago = searchParams.get('metodoPago') || undefined // Filtro por tipo de pago
-    const clienteNombre = searchParams.get('clienteNombre') || undefined // Filtro por nombre de cliente
-    const clienteEmail = searchParams.get('clienteEmail') || undefined // Filtro por email de cliente
-    const fechaDesde = searchParams.get('fechaDesde') ? new Date(searchParams.get('fechaDesde')!) : undefined // Filtro por fecha desde
-    const fechaHasta = searchParams.get('fechaHasta') ? new Date(searchParams.get('fechaHasta')!) : undefined // Filtro por fecha hasta
+    // Parámetros de paginación
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const skip = (page - 1) * limit
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
+    // Filtros
+    const estado = searchParams.get('estado')
+    const metodoPago = searchParams.get('metodoPago')
+    const clienteNombre = searchParams.get('clienteNombre')
+    const fechaDesde = searchParams.get('fechaDesde')
+    const fechaHasta = searchParams.get('fechaHasta')
+
+    // Construir where clause
+    const where: Prisma.PedidoWhereInput = {}
+    
+    if (estado) where.estado = estado as EstadoPedido
+    if (metodoPago) where.metodoPagoId = metodoPago as TipoPago
+    if (clienteNombre) {
+      where.cliente = {
+        nombre: {
+          contains: clienteNombre,
+          mode: 'insensitive'
+        }
+      }
+    }
+    if (fechaDesde || fechaHasta) {
+      where.creadoEl = {
+        ...(fechaDesde && { gte: new Date(fechaDesde) }),
+        ...(fechaHasta && { lte: new Date(fechaHasta) })
+      }
     }
 
-    // Verificar caché para admins
-    if (session.user.role === 'ADMIN' && ordersCache && Date.now() - lastFetch < CACHE_DURATION) {
-      return NextResponse.json(ordersCache)
-    }
+    // Obtener total de registros para la paginación
+    const total = await prisma.pedido.count({ where })
 
-    // Construir filtros dinámicamente
-    const filtros: Record<string, unknown> = {
-      ...(estado && { estado }),
-      ...(metodoPago && { metodoPagoId: metodoPago }),
-      ...(clienteNombre && { cliente: { nombre: { contains: clienteNombre, mode: 'insensitive' } } }),
-      ...(clienteEmail && { cliente: { email: { contains: clienteEmail, mode: 'insensitive' } } }),
-      ...(fechaDesde && { creadoEl: { gte: fechaDesde } }),
-      ...(fechaHasta && { creadoEl: { lte: fechaHasta } })
-    }
-
-    const pedidos = await prisma.pedido.findMany({
-      where: session.user.role === 'ADMIN'
-        ? filtros
-        : { clienteId: session.user.id, ...filtros },
-      select: {
-        id: true,
-        numero: true,
-        total: true,
-        estado: true,
-        creadoEl: true,
+    // Obtener órdenes con filtros y paginación
+    const orders = await prisma.pedido.findMany({
+      where,
+      include: {
         cliente: {
           select: {
             nombre: true,
-            email: true,
-          }
-        },
-        metodoPago: {
-          select: {
-            tipo: true
+            email: true
           }
         },
         items: {
@@ -92,20 +81,24 @@ export async function GET(request: Request) {
       orderBy: {
         creadoEl: 'desc'
       },
+      skip,
       take: limit
     })
 
-    // Actualizar caché para admins
-    if (session.user.role === 'ADMIN') {
-      ordersCache = pedidos
-      lastFetch = Date.now()
-    }
+    return NextResponse.json({
+      orders,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: page,
+        limit
+      }
+    })
 
-    return NextResponse.json(pedidos)
   } catch (error) {
-    console.error('Error al obtener pedidos:', error)
+    console.error('Error al obtener órdenes:', error)
     return NextResponse.json(
-      { error: 'Error al obtener los pedidos' },
+      { error: 'Error al obtener las órdenes' },
       { status: 500 }
     )
   }
@@ -114,7 +107,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-
     if (!session?.user) {
       return NextResponse.json(
         { error: 'No autorizado' },
@@ -122,63 +114,107 @@ export async function POST(request: Request) {
       )
     }
 
-    const body = await request.json()
-    const { items, direccion, metodoPago, notas } = body
+    const body = await request.json() as CreateOrderData
+    console.log('Datos recibidos:', body)
 
+    const { clienteId, items, metodoPago, total } = body
+
+    // Validaciones detalladas
+    if (!clienteId) {
+      return NextResponse.json({ error: 'clienteId es requerido' }, { status: 400 })
+    }
     if (!items?.length) {
+      return NextResponse.json({ error: 'Se requiere al menos un item' }, { status: 400 })
+    }
+    if (!metodoPago) {
+      return NextResponse.json({ error: 'metodoPago es requerido' }, { status: 400 })
+    }
+    if (typeof total !== 'number' || total <= 0) {
+      return NextResponse.json({ error: 'total debe ser un número mayor a 0' }, { status: 400 })
+    }
+
+    // Verificar dirección
+    const direccion = await prisma.direccion.findFirst({
+      where: {
+        userId: clienteId,
+        predeterminada: true
+      }
+    })
+
+    console.log('Dirección encontrada:', direccion)
+
+    if (!direccion) {
       return NextResponse.json(
-        { error: 'El pedido debe contener al menos un producto' },
+        { error: 'El cliente no tiene una dirección predeterminada' },
         { status: 400 }
       )
     }
 
-    // Calcular total y validar productos
-    let total = 0
-    const itemsData = await Promise.all(items.map(async (item: { productoId: string, cantidad: number }) => {
+    // Verificar productos
+    for (const item of items) {
       const producto = await prisma.producto.findUnique({
         where: { id: item.productoId }
       })
 
-      if (!producto || !producto.activo) {
-        throw new Error(`Producto no disponible: ${item.productoId}`)
+      if (!producto) {
+        return NextResponse.json(
+          { error: `Producto no encontrado: ${item.productoId}` },
+          { status: 400 }
+        )
       }
 
-      const subtotal = Number(producto.precio) * item.cantidad
-      total += subtotal
-
-      return {
-        productoId: item.productoId,
-        cantidad: item.cantidad,
-        precioUnit: producto.precio,
-        subtotal
+      if (producto.existencias < item.cantidad) {
+        return NextResponse.json(
+          { error: `Stock insuficiente para: ${producto.nombre}` },
+          { status: 400 }
+        )
       }
-    }))
+    }
 
-    // Crear el pedido con sus items
+    // Crear el pedido
     const pedido = await prisma.pedido.create({
       data: {
         numero: `PED-${Date.now()}`,
-        clienteId: session.user.id,
-        total,
-        estado: 'PENDIENTE',
+        clienteId,
+        direccionId: direccion.id,
         metodoPagoId: metodoPago,
-        direccionId: direccion,
-        notas,
+        estado: 'PENDIENTE',
+        estadoPago: 'PENDIENTE',
+        total: new Prisma.Decimal(total),
         items: {
-          create: itemsData
+          create: items.map(item => ({
+            productoId: item.productoId,
+            cantidad: item.cantidad,
+            precioUnit: new Prisma.Decimal(item.precioUnit),
+            subtotal: new Prisma.Decimal(Number(item.precioUnit) * item.cantidad)
+          }))
         }
       },
       include: {
-        items: true
+        items: {
+          include: {
+            producto: true
+          }
+        },
+        cliente: true,
+        direccion: true
       }
     })
 
-    return NextResponse.json(pedido)
+    console.log('Pedido creado:', pedido)
+
+    return NextResponse.json({ success: true, data: pedido })
+
   } catch (error) {
-    console.error('Error al crear pedido:', error)
-    return NextResponse.json(
-      { error: 'Error al crear el pedido' },
-      { status: 500 }
+    console.error('Error detallado al crear pedido:', error)
+    return new NextResponse(
+      JSON.stringify({ error: 'Error al crear el pedido' }),
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     )
   }
 }

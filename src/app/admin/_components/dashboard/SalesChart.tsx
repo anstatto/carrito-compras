@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -10,8 +10,7 @@ import {
   LineElement,
   Title,
   Tooltip,
-  Legend,
-  Filler
+  Legend
 } from 'chart.js'
 
 ChartJS.register(
@@ -21,56 +20,55 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend,
-  Filler
+  Legend
 )
 
-interface SalesData {
-  labels: string[]
-  data: number[]
+interface MonthlySales {
+  month: string
+  total: number
+  orders: number
 }
 
 export function SalesChart() {
-  const [salesData, setSalesData] = useState<SalesData>({ labels: [], data: [] })
+  const [salesData, setSalesData] = useState<MonthlySales[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    const fetchSalesData = async () => {
+      try {
+        const res = await fetch('/api/dashboard/sales')
+        if (!res.ok) throw new Error('Error al cargar datos de ventas')
+        const data = await res.json()
+        setSalesData(data)
+      } catch (error) {
+        console.error('Error:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     fetchSalesData()
   }, [])
 
-  const fetchSalesData = async () => {
-    try {
-      const res = await fetch('/api/dashboard/sales')
-      if (!res.ok) throw new Error('Error al cargar datos de ventas')
-      const data = await res.json()
-      setSalesData(data)
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    )
-  }
+  if (isLoading) return <div className="animate-pulse h-[400px] bg-gray-100 rounded-lg"></div>
 
   const chartData = {
-    labels: salesData.labels,
+    labels: salesData.map(d => d.month),
     datasets: [
       {
-        label: 'Ventas',
-        data: salesData.data,
-        fill: true,
+        label: 'Ventas ($)',
+        data: salesData.map(d => d.total),
         borderColor: 'rgb(219, 39, 119)',
         backgroundColor: 'rgba(219, 39, 119, 0.1)',
+        fill: true,
+        tension: 0.4
+      },
+      {
+        label: 'Órdenes',
+        data: salesData.map(d => d.orders),
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        fill: true,
         tension: 0.4
       }
     ]
@@ -80,11 +78,11 @@ export function SalesChart() {
     responsive: true,
     plugins: {
       legend: {
-        display: false
+        position: 'top' as const,
       },
       title: {
         display: true,
-        text: 'Ventas últimos 7 días'
+        text: 'Ventas Mensuales'
       }
     },
     scales: {
@@ -95,7 +93,8 @@ export function SalesChart() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h2 className="text-xl font-semibold mb-4">Análisis de Ventas</h2>
       <Line data={chartData} options={options} />
     </div>
   )
