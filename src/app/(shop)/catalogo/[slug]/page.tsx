@@ -47,11 +47,17 @@ async function getData(categoriaSlug: string) {
   return { productos, total };
 }
 
-export default async function CatalogoPage({
-  params: { slug },
-}: {
-  params: { slug: string };
-}) {
+// Definimos la interfaz PageProps correctamente
+interface PageProps {
+  params: {
+    slug: string;
+  };
+  searchParams?: { [key: string]: string | string[] | undefined };
+}
+
+// Modificamos la definición de la función para usar la interfaz
+export default async function CatalogoPage({ params }: PageProps) {
+  const { slug } = params;
   const { productos, total } = await getData(slug);
 
   const categorias = await prisma.categoria.findMany({
