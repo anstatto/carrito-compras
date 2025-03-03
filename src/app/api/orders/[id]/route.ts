@@ -6,7 +6,15 @@ import puppeteer from 'puppeteer'
 import type { Order } from '@/interfaces/Order'
 
 async function generatePDF(order: Order) {
-  const browser = await puppeteer.launch({ headless: true })
+  const browser = await puppeteer.launch({ 
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
+  })
   const page = await browser.newPage()
   
   const html = `
