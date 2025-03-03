@@ -1,12 +1,20 @@
-import ProductGrid from "@/components/products/ProductGrid";
-import FilterSidebar from "@/components/catalog/FilterSidebar";
-import { Suspense } from "react";
-import Loading from "./loading";
+import { Metadata } from 'next'
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import ProductGrid from "@/components/products/ProductGrid";
+import FilterSidebar from "@/components/catalog/FilterSidebar";
 import CatalogHeader from "@/components/catalog/CatalogHeader";
+import { Suspense } from "react";
+import Loading from "./loading";
 import { ProductView } from "@/interfaces/Product";
 
+// Define los tipos esperados por Next.js
+interface PageProps {
+  params: Promise<{
+    slug: string
+  }>,
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
+}
 
 async function getData(categoriaSlug: string) {
   // Obtén el ID de la categoría usando el slug
@@ -47,17 +55,17 @@ async function getData(categoriaSlug: string) {
   return { productos, total };
 }
 
-// Definimos la interfaz PageProps correctamente
-interface PageProps {
-  params: {
-    slug: string;
-  };
-  searchParams?: { [key: string]: string | string[] | undefined };
+// Asegúrate de manejar params y searchParams como Promises
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  return {
+    title: `Catálogo - ${slug}`,
+    // ... otras propiedades de metadata
+  }
 }
 
-// Modificamos la definición de la función para usar la interfaz
 export default async function CatalogoPage({ params }: PageProps) {
-  const { slug } = params;
+  const { slug } = await params;
   const { productos, total } = await getData(slug);
 
   const categorias = await prisma.categoria.findMany({

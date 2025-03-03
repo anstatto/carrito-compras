@@ -3,11 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
+
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json(
@@ -18,10 +17,14 @@ export async function GET(
 
     const address = await prisma.direccion.findFirst({
       where: {
-        userId: params.id,
+        userId: id,
         predeterminada: true
       }
     })
+
+    if (!address) {
+      return NextResponse.json({ error: 'Dirección no encontrada' }, { status: 404 });
+    }
 
     return NextResponse.json({
       hasDefaultAddress: !!address,
@@ -38,9 +41,11 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json(
@@ -55,7 +60,7 @@ export async function POST(
     if (body.predeterminada) {
       await prisma.direccion.updateMany({
         where: {
-          userId: params.id,
+          userId: id,
           predeterminada: true
         },
         data: {
@@ -67,7 +72,7 @@ export async function POST(
     const address = await prisma.direccion.create({
       data: {
         ...body,
-        userId: params.id
+        userId: id
       }
     })
 

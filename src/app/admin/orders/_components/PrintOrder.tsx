@@ -10,6 +10,50 @@ interface PrintOrderProps {
 }
 
 export default function PrintOrder({ order }: PrintOrderProps) {
+  const getUserInfo = () => {
+    if (!order.cliente) {
+      return {
+        nombre: 'No disponible',
+        apellido: '',
+        email: 'No disponible',
+        telefono: null
+      }
+    }
+    return order.cliente
+  }
+
+  const getPaymentMethod = () => {
+    if (!order.metodoPago) {
+      return 'No especificado'
+    }
+    return order.metodoPago.tipo
+  }
+
+  const formatMoney = (amount: number | string | { toString: () => string } | undefined) => {
+    if (typeof amount === 'undefined') return '$0.00'
+    
+    // Convertir a número
+    const value = typeof amount === 'number' 
+      ? amount 
+      : parseFloat(amount.toString())
+
+    // Verificar si es un número válido
+    if (isNaN(value)) return '$0.00'
+    
+    return `$${value.toFixed(2)}`
+  }
+
+  const getOrderItems = () => {
+    if (!order?.items) return []
+    return order.items
+  }
+
+  const formattedDate = order.creadoEl ? format(
+    new Date(order.creadoEl),
+    'dd/MM/yyyy HH:mm',
+    { locale: es }
+  ) : 'Fecha no disponible'
+
   return (
     <div className="p-8 max-w-4xl mx-auto bg-white">
       {/* Encabezado */}
@@ -32,68 +76,57 @@ export default function PrintOrder({ order }: PrintOrderProps) {
         <div className="border rounded-lg p-4">
           <h2 className="text-xl font-semibold mb-3 text-pink-600">Información del Cliente</h2>
           <div className="space-y-2 text-gray-700">
-            <p><strong>Nombre:</strong> {order.cliente.nombre}</p>
-            <p><strong>Email:</strong> {order.cliente.email}</p>
+            <p><strong>Nombre:</strong> {getUserInfo().nombre} {getUserInfo().apellido}</p>
+            <p><strong>Email:</strong> {getUserInfo().email}</p>
+            {getUserInfo().telefono && (
+              <p><strong>Teléfono:</strong> {getUserInfo().telefono}</p>
+            )}
           </div>
         </div>
         <div className="border rounded-lg p-4">
           <h2 className="text-xl font-semibold mb-3 text-pink-600">Detalles de la Orden</h2>
           <div className="space-y-2 text-gray-700">
-            <p><strong>Fecha:</strong> {format(new Date(order.creadoEl), "dd 'de' MMMM 'de' yyyy", { locale: es })}</p>
-            <p><strong>Estado:</strong> <span className={`px-2 py-1 rounded-full text-sm ${
-              order.estado === 'PENDIENTE' ? 'bg-yellow-100 text-yellow-800' :
-              order.estado === 'PAGADO' ? 'bg-green-100 text-green-800' :
-              order.estado === 'ENVIADO' ? 'bg-blue-100 text-blue-800' :
-              'bg-gray-100 text-gray-800'
-            }`}>{order.estado}</span></p>
-            <p><strong>Método de Pago:</strong> {order.metodoPago.tipo}</p>
+            <p><strong>Fecha:</strong> {formattedDate}</p>
+            <p><strong>Estado:</strong> {order.estado}</p>
+            <p><strong>Método de Pago:</strong> {getPaymentMethod()}</p>
+            <p><strong>Total:</strong> {formatMoney(order.total)}</p>
           </div>
         </div>
       </div>
 
       {/* Tabla de Productos */}
-      <div className="mb-8">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-pink-50">
-              <th className="py-3 px-4 text-left">Producto</th>
-              <th className="py-3 px-4 text-center">Cantidad</th>
-              <th className="py-3 px-4 text-right">Precio Unit.</th>
-              <th className="py-3 px-4 text-right">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {order.items.map((item) => (
-              <tr key={item.id} className="border-b">
-                <td className="py-4 px-4">
-                  <div className="flex items-center gap-3">
-                    {item.producto.imagenes[0] && (
-                      <Image
-                        src={item.producto.imagenes[0].url}
-                        alt={item.producto.nombre}
-                        width={40}
-                        height={40}
-                        className="rounded-lg object-cover"
-                      />
-                    )}
-                    <span>{item.producto.nombre}</span>
-                  </div>
-                </td>
-                <td className="py-4 px-4 text-center">{item.cantidad}</td>
-                <td className="py-4 px-4 text-right">${item.precioUnit.toFixed(2)}</td>
-                <td className="py-4 px-4 text-right">${item.subtotal.toFixed(2)}</td>
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold mb-4 text-pink-600">Productos</h2>
+        {getOrderItems().length === 0 ? (
+          <p className="text-center text-gray-500">No hay productos en esta orden</p>
+        ) : (
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left p-2">Producto</th>
+                <th className="text-right p-2">Cantidad</th>
+                <th className="text-right p-2">Precio Unit.</th>
+                <th className="text-right p-2">Subtotal</th>
               </tr>
-            ))}
-            <tr className="font-bold bg-pink-50">
-              <td colSpan={3} className="py-4 px-4 text-right">Total:</td>
-              <td className="py-4 px-4 text-right">${order.total.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {getOrderItems().map((item) => (
+                <tr key={item.id} className="border-t">
+                  <td className="p-2">{item.producto?.nombre || 'Producto no disponible'}</td>
+                  <td className="text-right p-2">{item.cantidad || 0}</td>
+                  <td className="text-right p-2">{formatMoney(item.precioUnit)}</td>
+                  <td className="text-right p-2">
+                    {formatMoney(item.cantidad * Number(item.precioUnit))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Pie de Página */}
-      <div className="text-center text-sm text-gray-500 border-t pt-4">
+      <div className="text-center text-sm text-gray-500 border-t mt-8 pt-4">
         <div className="mb-2">
           <p className="font-medium text-pink-600">¡Gracias por tu compra!</p>
         </div>

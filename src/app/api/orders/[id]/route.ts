@@ -3,14 +3,11 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from '@/lib/auth'
 
-interface Params {
-  params: Promise<{ id: string }>
-}
-
-export async function GET(request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
+
     const session = await getServerSession(authOptions)
-    const resolvedParams = await params
     
     if (!session?.user) {
       return NextResponse.json(
@@ -20,20 +17,29 @@ export async function GET(request: Request, { params }: Params) {
     }
 
     const pedido = await prisma.pedido.findUnique({
-      where: { id: resolvedParams.id },
+      where: { id },
       include: {
         cliente: {
           select: {
+            id: true,
             nombre: true,
+            apellido: true,
             email: true,
+            telefono: true,
           }
         },
+        metodoPago: true,
+        direccion: true,
         items: {
           include: {
             producto: {
               select: {
+                id: true,
                 nombre: true,
-                imagenes: true
+                sku: true,
+                precio: true,
+                imagenes: true,
+                marca: true
               }
             }
           }
@@ -48,14 +54,6 @@ export async function GET(request: Request, { params }: Params) {
       )
     }
 
-    // Verificar que el usuario tenga acceso al pedido
-    if (session.user.role !== 'ADMIN' && pedido.clienteId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
-
     return NextResponse.json(pedido)
   } catch (error) {
     console.error('Error al obtener pedido:', error)
@@ -66,10 +64,11 @@ export async function GET(request: Request, { params }: Params) {
   }
 }
 
-export async function PATCH(request: Request, { params }: Params) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
+
     const session = await getServerSession(authOptions)
-    const resolvedParams = await params
     
     if (!session?.user) {
       return NextResponse.json(
@@ -90,7 +89,7 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     const pedido = await prisma.pedido.update({
-      where: { id: resolvedParams.id },
+      where: { id },
       data: { 
         estado,
         actualizadoEl: new Date()

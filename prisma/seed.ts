@@ -58,7 +58,7 @@ const METODOS_PAGO = [
     ultimosDigitos: "9424",
   },
   {
-    tipo: TipoPago.OXXO,
+    tipo: TipoPago.EFECTIVO,
   },
   {
     tipo: TipoPago.TRANSFERENCIA,

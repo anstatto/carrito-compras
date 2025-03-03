@@ -2,7 +2,9 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from '@/lib/auth'
-import { Prisma, EstadoPedido, TipoPago } from "@prisma/client"
+import { Prisma, TipoPago, EstadoPedido } from "@prisma/client"
+
+
 
 interface OrderItem {
   productoId: string;
@@ -21,72 +23,51 @@ interface CreateOrderData {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    
-    // Parámetros de paginación
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const skip = (page - 1) * limit
+    const page = Number(searchParams.get('page')) || 1
+    const limit = Number(searchParams.get('limit')) || 10
+    const estado = searchParams.get('estado') as EstadoPedido | null
+    const busqueda = searchParams.get('busqueda')
 
-    // Filtros
-    const estado = searchParams.get('estado')
-    const metodoPago = searchParams.get('metodoPago')
-    const clienteNombre = searchParams.get('clienteNombre')
-    const fechaDesde = searchParams.get('fechaDesde')
-    const fechaHasta = searchParams.get('fechaHasta')
-
-    // Construir where clause
-    const where: Prisma.PedidoWhereInput = {}
-    
-    if (estado) where.estado = estado as EstadoPedido
-    if (metodoPago) where.metodoPagoId = metodoPago as TipoPago
-    if (clienteNombre) {
-      where.cliente = {
-        nombre: {
-          contains: clienteNombre,
-          mode: 'insensitive'
-        }
-      }
-    }
-    if (fechaDesde || fechaHasta) {
-      where.creadoEl = {
-        ...(fechaDesde && { gte: new Date(fechaDesde) }),
-        ...(fechaHasta && { lte: new Date(fechaHasta) })
-      }
-    }
-
-    // Obtener total de registros para la paginación
-    const total = await prisma.pedido.count({ where })
-
-    // Obtener órdenes con filtros y paginación
-    const orders = await prisma.pedido.findMany({
-      where,
-      include: {
-        cliente: {
-          select: {
-            nombre: true,
-            email: true
+    const where: Prisma.PedidoWhereInput = {
+      ...(estado && { estado }),
+      ...(busqueda && {
+        OR: [
+          { numero: { contains: busqueda, mode: Prisma.QueryMode.insensitive } },
+          { 
+            cliente: {
+              OR: [
+                { nombre: { contains: busqueda, mode: Prisma.QueryMode.insensitive } },
+                { apellido: { contains: busqueda, mode: Prisma.QueryMode.insensitive } },
+                { email: { contains: busqueda, mode: Prisma.QueryMode.insensitive } }
+              ]
+            }
           }
-        },
-        items: {
-          include: {
-            producto: {
-              select: {
-                nombre: true,
-                imagenes: true
-              }
+        ]
+      })
+    }
+
+    const [pedidos, total] = await Promise.all([
+      prisma.pedido.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { creadoEl: 'desc' },
+        include: {
+          cliente: {
+            select: {
+              id: true,
+              nombre: true,
+              apellido: true,
+              email: true
             }
           }
         }
-      },
-      orderBy: {
-        creadoEl: 'desc'
-      },
-      skip,
-      take: limit
-    })
+      }),
+      prisma.pedido.count({ where })
+    ])
 
     return NextResponse.json({
-      orders,
+      orders: pedidos,
       pagination: {
         total,
         pages: Math.ceil(total / limit),
@@ -94,13 +75,9 @@ export async function GET(request: Request) {
         limit
       }
     })
-
   } catch (error) {
-    console.error('Error al obtener órdenes:', error)
-    return NextResponse.json(
-      { error: 'Error al obtener las órdenes' },
-      { status: 500 }
-    )
+    console.error('Error:', error)
+    return NextResponse.json({ error: 'Error al obtener pedidos' }, { status: 500 })
   }
 }
 

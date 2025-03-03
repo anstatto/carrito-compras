@@ -1,3 +1,5 @@
+import { FaShoppingCart, FaSpinner } from 'react-icons/fa';
+
 interface OrderSummaryProps {
   total: number;
   onSave: () => Promise<void>;
@@ -10,10 +12,14 @@ export default function OrderSummary({
   isSubmitting,
 }: OrderSummaryProps) {
   return (
-    <div className="bg-gray-50 p-6 rounded-lg">
+    <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Resumen de la Orden</h3>
-        <div className="text-2xl font-bold text-pink-600">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <FaShoppingCart className="text-pink-500" />
+          Resumen de la Orden
+        </h3>
+        <div className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-violet-500 
+                      text-transparent bg-clip-text">
           RD${total.toFixed(2)}
         </div>
       </div>
@@ -27,15 +33,18 @@ export default function OrderSummary({
                    hover:to-violet-600 focus:outline-none focus:ring-2 
                    focus:ring-pink-500 focus:ring-offset-2 disabled:opacity-50 
                    disabled:cursor-not-allowed transition-all duration-200 
-                   flex items-center justify-center gap-2"
+                   flex items-center justify-center gap-2 relative overflow-hidden"
         >
           {isSubmitting ? (
             <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <FaSpinner className="animate-spin" />
               <span>Procesando...</span>
             </>
           ) : (
-            'Crear Orden'
+            <>
+              <FaShoppingCart />
+              <span>Crear Orden</span>
+            </>
           )}
         </button>
       </div>
