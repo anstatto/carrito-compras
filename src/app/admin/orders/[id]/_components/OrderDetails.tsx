@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'react-hot-toast'
-import PrintOrder from '../../_components/PrintOrder'
 import { Order } from '@/interfaces/Order'
 import Image from 'next/image'
 import { 
@@ -32,6 +31,45 @@ interface OrderDetailsProps {
   initialOrder: Order;
   orderId: string;
 }
+
+const handlePrint = async (orderId: string) => {
+  try {
+    const response = await fetch(`/api/orders/${orderId}?format=pdf`, {
+      method: 'GET',
+    })
+    
+    if (!response.ok) {
+      throw new Error('Error al generar el PDF')
+    }
+    
+    // Obtener el blob del PDF
+    const blob = await response.blob()
+    
+    // Crear URL del blob
+    const url = window.URL.createObjectURL(blob)
+    
+    // Crear un iframe para mostrar el PDF
+    const iframe = document.createElement('iframe')
+    iframe.style.display = 'none'
+    iframe.src = url
+    document.body.appendChild(iframe)
+    
+    // Esperar a que el PDF se cargue y luego imprimir
+    iframe.onload = () => {
+      iframe.contentWindow?.print()
+      
+      // Limpiar después de imprimir
+      setTimeout(() => {
+        document.body.removeChild(iframe)
+        window.URL.revokeObjectURL(url)
+      }, 1000)
+    }
+  } catch (error) {
+    console.error('Error al imprimir:', error)
+    alert('Error al generar el PDF')
+  }
+}
+
 
 export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProps) {
   const router = useRouter()
@@ -102,14 +140,20 @@ export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProp
     return order.items
   }
 
+  const formattedDate = useMemo(() => {
+    if (!order.creadoEl) return 'Fecha no disponible';
+    try {
+      const date = new Date(order.creadoEl);
+      if (isNaN(date.getTime())) return 'Fecha no disponible';
+      return format(date, 'dd/MM/yyyy HH:mm', { locale: es });
+    } catch (error) {
+      console.error('Error al formatear la fecha:', error);
+      return 'Fecha no disponible';
+    }
+  }, [order.creadoEl]);
+
   if (isLoading) return <div>Cargando...</div>
   if (!order) return <div>Orden no encontrada</div>
-
-  const formattedDate = order.creadoEl ? format(
-    parseISO(order.creadoEl.toString()),
-    'dd/MM/yyyy HH:mm',
-    { locale: es }
-  ) : 'Fecha no disponible';
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -141,7 +185,7 @@ export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProp
             Volver
           </button>
           <button
-            onClick={() => window.print()}
+            onClick={() => handlePrint(orderId)}
             className="px-4 py-2 bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2"
           >
             <FaPrint />
@@ -261,9 +305,6 @@ export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProp
         </div>
       </div>
 
-      <div className="hidden print:block">
-        <PrintOrder order={order} />
-      </div>
     </div>
   )
 } 

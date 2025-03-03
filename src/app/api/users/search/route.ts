@@ -7,14 +7,23 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "No autorizado" 
+        }, 
+        { status: 401 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q");
 
     if (!query) {
-      return NextResponse.json([]);
+      return NextResponse.json({ 
+        success: true, 
+        data: [] 
+      });
     }
 
     const users = await prisma.user.findMany({
@@ -37,11 +46,17 @@ export async function GET(request: Request) {
       take: 5
     });
 
-    return NextResponse.json(users);
+    return NextResponse.json({
+      success: true,
+      data: users
+    });
   } catch (error) {
     console.error("Error en búsqueda de usuarios:", error);
     return NextResponse.json(
-      { error: "Error al buscar usuarios" },
+      { 
+        success: false,
+        error: "Error al buscar usuarios" 
+      },
       { status: 500 }
     );
   }

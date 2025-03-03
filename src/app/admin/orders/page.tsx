@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-hot-toast";
-import OrderFilters, { OrderFilters as OrderFiltersType } from "./_components/OrderFilters";
 import OrdersTable from "./_components/OrdersTable";
 import OrderForm from "./_components/OrderForm";
 import { Order } from "@/interfaces/Order";
@@ -11,9 +10,12 @@ import {
   FaTimes, 
   FaShoppingBag,
   FaChartLine,
-  FaSpinner
+  FaSpinner,
+  FaSearch,
+  FaCalendar
 } from "react-icons/fa";
-import { EstadoPedido } from "@prisma/client";
+import { EstadoPedido, TipoPago } from "@prisma/client";
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface PaginationData {
   total: number;
@@ -22,12 +24,63 @@ interface PaginationData {
   limit: number;
 }
 
+interface OrderFilters {
+  busqueda: string;
+  estado: string;
+  metodoPago: string;
+  fechaInicio: string;
+  fechaFin: string;
+  page: number;
+  limit: number;
+}
+
+interface ApiOrder {
+  id: string;
+  numero: string;
+  estado: string;
+  total: number;
+  metodoPago: { tipo: TipoPago } | null;
+  cliente: {
+    nombre: string;
+    apellido: string;
+    email: string;
+  };
+  creadoEl: string;
+}
+
+const ESTADOS = [
+  { value: '', label: 'Todos' },
+  { value: 'PENDIENTE', label: 'Pendiente' },
+  { value: 'PAGADO', label: 'Pagado' },
+  { value: 'CONFIRMADO', label: 'Confirmado' },
+  { value: 'PREPARANDO', label: 'Preparando' },
+  { value: 'ENVIADO', label: 'Enviado' },
+  { value: 'ENTREGADO', label: 'Entregado' },
+  { value: 'CANCELADO', label: 'Cancelado' },
+]
+
+const METODOS_PAGO = [
+  { value: '', label: 'Todos' },
+  { value: 'EFECTIVO', label: 'Efectivo' },
+  { value: 'TRANSFERENCIA', label: 'Transferencia' },
+  { value: 'TARJETA', label: 'Tarjeta' },
+  { value: 'STRIPE', label: 'Stripe' },
+]
+
 export default function OrdersPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewOrder, setShowNewOrder] = useState(false);
-  const [currentFilters, setCurrentFilters] = useState<Partial<OrderFiltersType>>({
-    page: 1,
+  const [filters, setFilters] = useState<OrderFilters>({
+    busqueda: searchParams.get('busqueda') || '',
+    estado: searchParams.get('estado') || '',
+    metodoPago: searchParams.get('metodoPago') || '',
+    fechaInicio: searchParams.get('fechaInicio') || new Date().toISOString().split('T')[0],
+    fechaFin: searchParams.get('fechaFin') || new Date().toISOString().split('T')[0],
+    page: Number(searchParams.get('page')) || 1,
     limit: 10
   });
   const [pagination, setPagination] = useState<PaginationData>({
@@ -37,25 +90,31 @@ export default function OrdersPage() {
     limit: 10
   });
 
-  const fetchOrders = useCallback(async (filters: Partial<OrderFiltersType> = {}) => {
+  const fetchOrders = useCallback(async () => {
     try {
       setIsLoading(true);
       const queryParams = new URLSearchParams();
       
-      const mergedFilters = { ...currentFilters, ...filters };
-
-      if (mergedFilters.page) queryParams.set('page', String(mergedFilters.page));
-      if (mergedFilters.limit) queryParams.set('limit', String(mergedFilters.limit));
-      if (mergedFilters.estado) queryParams.set('estado', mergedFilters.estado);
-      if (mergedFilters.busqueda) queryParams.set('busqueda', mergedFilters.busqueda);
+      if (filters.page) queryParams.set('page', String(filters.page));
+      if (filters.limit) queryParams.set('limit', String(filters.limit));
+      if (filters.estado) queryParams.set('estado', filters.estado);
+      if (filters.busqueda) queryParams.set('busqueda', filters.busqueda);
+      if (filters.metodoPago) queryParams.set('metodoPago', filters.metodoPago);
+      if (filters.fechaInicio) queryParams.set('fechaInicio', filters.fechaInicio);
+      if (filters.fechaFin) queryParams.set('fechaFin', filters.fechaFin);
 
       const res = await fetch(`/api/orders?${queryParams}`);
       if (!res.ok) throw new Error('Error al cargar las órdenes');
       const data = await res.json();
-      const ordersWithCorrectTypes = data.orders.map((order: Omit<Order, 'estado'> & { estado: string }) => ({
+      
+      const ordersWithCorrectTypes = data.orders.map((order: ApiOrder) => ({
         ...order,
-        estado: order.estado as EstadoPedido
+        estado: order.estado as EstadoPedido,
+        metodoPago: order.metodoPago ? {
+          tipo: order.metodoPago.tipo
+        } : null
       }));
+
       setOrders(ordersWithCorrectTypes);
       setPagination(data.pagination);
     } catch (error) {
@@ -64,15 +123,27 @@ export default function OrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentFilters]);
+  }, [filters]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const handleFilterChange = (filters: Partial<OrderFiltersType>) => {
-    setCurrentFilters(prev => ({ ...prev, ...filters }));
-    fetchOrders(filters);
+  const handleFilterChange = (key: keyof OrderFilters, value: string | number) => {
+    setFilters(prev => ({ 
+      ...prev, 
+      [key]: value,
+      page: key === 'page' ? Number(value) : 1
+    }));
+    
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set(key, value.toString());
+    } else {
+      params.delete(key);
+    }
+    if (key !== 'page') params.set('page', '1');
+    router.push(`?${params.toString()}`);
   };
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
@@ -93,6 +164,29 @@ export default function OrdersPage() {
     } catch (error) {
       console.error(error);
       toast.error("Error al actualizar el estado");
+    }
+  };
+
+  const handleUpdatePaymentMethod = async (orderId: string, newPaymentMethod: TipoPago) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metodoPago: newPaymentMethod })
+      });
+
+      if (!res.ok) throw new Error("Error al actualizar el método de pago");
+      
+      setOrders(orders.map(order => 
+        order.id === orderId 
+          ? { ...order, metodoPago: { tipo: newPaymentMethod } } 
+          : order
+      ));
+      
+      toast.success("Método de pago actualizado correctamente");
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al actualizar el método de pago");
     }
   };
 
@@ -149,18 +243,108 @@ export default function OrdersPage() {
         ) : (
           <div className="divide-y divide-gray-200">
             <div className="p-6">
-              <OrderFilters 
-                onFilterChange={handleFilterChange}
-                totalOrders={pagination.total}
-                currentPage={pagination.currentPage}
-                totalPages={pagination.pages}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="relative">
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por número o cliente..."
+                    value={filters.busqueda}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('busqueda', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300"
+                  />
+                </div>
+                
+                <div>
+                  <select
+                    value={filters.estado}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFilterChange('estado', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300"
+                  >
+                    {ESTADOS.map(estado => (
+                      <option key={estado.value} value={estado.value}>
+                        {estado.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <select
+                    value={filters.metodoPago}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFilterChange('metodoPago', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300"
+                  >
+                    {METODOS_PAGO.map(metodo => (
+                      <option key={metodo.value} value={metodo.value}>
+                        {metodo.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="relative">
+                  <FaCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="date"
+                    value={filters.fechaInicio}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('fechaInicio', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300"
+                  />
+                </div>
+
+                <div className="relative">
+                  <FaCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="date"
+                    value={filters.fechaFin}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('fechaFin', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300"
+                  />
+                </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
-              <OrdersTable 
-                orders={orders}
-                onUpdateStatus={handleUpdateStatus}
-              />
+              {isLoading ? (
+                <div className="p-6 space-y-4">
+                  <div className="h-12 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-12 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-12 bg-gray-200 rounded animate-pulse" />
+                </div>
+              ) : (
+                <OrdersTable 
+                  orders={orders}
+                  onUpdateStatus={handleUpdateStatus}
+                  onUpdatePaymentMethod={handleUpdatePaymentMethod}
+                />
+              )}
+            </div>
+            
+            {/* Paginación */}
+            <div className="p-4 flex justify-between items-center">
+              <span className="text-sm text-gray-600">
+                Mostrando {Math.min((filters.page - 1) * filters.limit + 1, pagination.total)} - 
+                {Math.min(filters.page * filters.limit, pagination.total)} de {pagination.total} órdenes
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleFilterChange('page', filters.page - 1)}
+                  disabled={filters.page === 1}
+                  className="px-4 py-2 rounded-lg border disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <span className="px-4 py-2">
+                  Página {filters.page} de {pagination.pages}
+                </span>
+                <button
+                  onClick={() => handleFilterChange('page', filters.page + 1)}
+                  disabled={filters.page === pagination.pages}
+                  className="px-4 py-2 rounded-lg border disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           </div>
         )}

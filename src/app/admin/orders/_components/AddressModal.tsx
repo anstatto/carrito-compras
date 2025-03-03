@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { ProvinciaRD } from '@prisma/client'
+import { ProvinciaRD, AgenciaEnvio } from '@prisma/client'
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog"
 import { FaTimes, FaMapMarkerAlt, FaPhone, FaBuilding } from 'react-icons/fa'
 
@@ -28,6 +29,8 @@ interface Address {
   telefono: string;
   predeterminada: boolean;
   userId: string;
+  agenciaEnvio?: AgenciaEnvio;
+  sucursalAgencia?: string;
 }
 
 export default function AddressModal({ isOpen, onClose, onSubmit, initialData }: AddressModalProps) {
@@ -39,12 +42,19 @@ export default function AddressModal({ isOpen, onClose, onSubmit, initialData }:
     municipio: '',
     telefono: '',
     predeterminada: true,
-    userId: ''
+    userId: '',
+    agenciaEnvio: undefined,
+    sucursalAgencia: ''
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
   };
 
   return (
@@ -54,40 +64,44 @@ export default function AddressModal({ isOpen, onClose, onSubmit, initialData }:
           <DialogTitle>
             {initialData ? 'Editar' : 'Agregar'} Dirección
           </DialogTitle>
+          <DialogDescription>
+            {initialData 
+              ? 'Modifica los datos de la dirección existente.' 
+              : 'Por favor ingresa los datos de la nueva dirección. Esta será establecida como la dirección predeterminada.'}
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit(formData);
-        }} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              <FaMapMarkerAlt className="inline mr-2" />
-              Calle
-            </label>
-            <input
-              type="text"
-              name="calle"
-              value={formData.calle}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              required
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                <FaMapMarkerAlt className="inline mr-2" />
+                Calle
+              </label>
+              <input
+                type="text"
+                name="calle"
+                value={formData.calle}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              <FaBuilding className="inline mr-2" />
-              Número
-            </label>
-            <input
-              type="text"
-              name="numero"
-              value={formData.numero}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              required
-            />
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                <FaBuilding className="inline mr-2" />
+                Número
+              </label>
+              <input
+                type="text"
+                name="numero"
+                value={formData.numero}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
           </div>
 
           <div>
@@ -102,33 +116,35 @@ export default function AddressModal({ isOpen, onClose, onSubmit, initialData }:
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Provincia</label>
-            <select
-              name="provincia"
-              value={formData.provincia}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              required
-            >
-              {Object.values(ProvinciaRD).map((provincia) => (
-                <option key={provincia} value={provincia}>
-                  {provincia.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Provincia</label>
+              <select
+                name="provincia"
+                value={formData.provincia}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+                required
+              >
+                {Object.values(ProvinciaRD).map((provincia) => (
+                  <option key={provincia} value={provincia}>
+                    {provincia.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Municipio</label>
-            <input
-              type="text"
-              name="municipio"
-              value={formData.municipio}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-              required
-            />
+            <div>
+              <label className="block text-sm font-medium mb-1">Municipio</label>
+              <input
+                type="text"
+                name="municipio"
+                value={formData.municipio}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
           </div>
 
           <div>
@@ -143,27 +159,63 @@ export default function AddressModal({ isOpen, onClose, onSubmit, initialData }:
               onChange={handleChange}
               className="w-full p-2 border rounded"
               required
+              placeholder="Ej: 809-555-5555"
             />
           </div>
-        </form>
 
-        <DialogFooter>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center"
-          >
-            <FaTimes className="mr-2" />
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 flex items-center"
-          >
-            <FaMapMarkerAlt className="mr-2" />
-            Guardar
-          </button>
-        </DialogFooter>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Agencia de Envío
+              </label>
+              <select
+                name="agenciaEnvio"
+                value={formData.agenciaEnvio || ''}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Seleccione una agencia</option>
+                {Object.values(AgenciaEnvio).map((agencia) => (
+                  <option key={agencia} value={agencia}>
+                    {agencia.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Sucursal de Agencia
+              </label>
+              <input
+                type="text"
+                name="sucursalAgencia"
+                value={formData.sucursalAgencia || ''}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+                placeholder="Ej: Sucursal Santiago"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center"
+            >
+              <FaTimes className="mr-2" />
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 flex items-center"
+            >
+              <FaMapMarkerAlt className="mr-2" />
+              Guardar
+            </button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -1,25 +1,34 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Client } from '@/app/types'
 import { 
   FaSearch, 
   FaUser, 
   FaSpinner,
-  FaPlus 
+  FaPlus,
+  FaExclamationCircle 
 } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
 import ClientModal from './ClientModal'
+import { toast } from 'react-hot-toast'
 
 interface ClientSelectorProps {
   onSelect: (client: Client | null) => void
   selectedClient?: Client | null
 }
 
+interface SearchResponse {
+  success: boolean
+  data?: Client[]
+  error?: string
+}
+
 export default function ClientSelector({ onSelect, selectedClient }: ClientSelectorProps) {
   const [search, setSearch] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [showNewClientModal, setShowNewClientModal] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
@@ -36,27 +45,55 @@ export default function ClientSelector({ onSelect, selectedClient }: ClientSelec
   }, [])
 
   // Buscar clientes cuando el usuario escribe
-  useEffect(() => {
-    const searchClients = async () => {
-      if (!search) {
-        setClients([])
-        return
-      }
-      setLoading(true)
-      try {
-        const res = await fetch(`/api/users/search?q=${search}`)
-        const data = await res.json()
-        setClients(data)
-      } catch (error) {
-        console.error('Error buscando usuarios:', error)
-      } finally {
-        setLoading(false)
-      }
+  const searchClients = useCallback(async () => {
+    if (!search.trim()) {
+      setClients([])
+      setError(null)
+      return
     }
 
+    setLoading(true)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(search.trim())}`)
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Error al buscar clientes')
+      }
+
+      const data: SearchResponse = await res.json()
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Error al buscar clientes')
+      }
+
+      setClients(data.data || [])
+    } catch (error) {
+      console.error('Error buscando usuarios:', error)
+      setError(error instanceof Error ? error.message : 'Error al buscar clientes')
+      toast.error('Error al buscar clientes')
+    } finally {
+      setLoading(false)
+    }
+  }, [search])
+
+  useEffect(() => {
     const timeoutId = setTimeout(searchClients, 300)
     return () => clearTimeout(timeoutId)
-  }, [search])
+  }, [searchClients])
+
+  const handleSelectClient = (client: Client) => {
+    onSelect(client)
+    setIsOpen(false)
+    setSearch('')
+    setError(null)
+  }
+
+  const handleNewClientClick = () => {
+    setShowNewClientModal(true)
+    setIsOpen(false)
+  }
 
   return (
     <div className="relative" ref={searchRef}>
@@ -72,7 +109,8 @@ export default function ClientSelector({ onSelect, selectedClient }: ClientSelec
             </div>
             <button
               onClick={() => onSelect(null)}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100"
+              aria-label="Remover cliente seleccionado"
             >
               ×
             </button>
@@ -87,6 +125,7 @@ export default function ClientSelector({ onSelect, selectedClient }: ClientSelec
               placeholder="Buscar cliente por nombre o email..."
               className="w-full px-4 py-3 pl-11 border rounded-lg focus:ring-2 
                        focus:ring-pink-500 focus:border-pink-500"
+              aria-label="Buscar cliente"
             />
             <FaSearch className="absolute left-4 top-3.5 h-4 w-4 text-gray-400" />
           </div>
@@ -107,15 +146,16 @@ export default function ClientSelector({ onSelect, selectedClient }: ClientSelec
                 <FaSpinner className="animate-spin mx-auto mb-2" />
                 <p>Buscando...</p>
               </div>
+            ) : error ? (
+              <div className="p-4 text-center text-red-500">
+                <FaExclamationCircle className="mx-auto mb-2" />
+                <p>{error}</p>
+              </div>
             ) : clients.length > 0 ? (
               clients.map((client) => (
                 <motion.div
                   key={client.id}
-                  onClick={() => {
-                    onSelect(client)
-                    setIsOpen(false)
-                    setSearch('')
-                  }}
+                  onClick={() => handleSelectClient(client)}
                   className="p-3 hover:bg-pink-50 cursor-pointer transition-colors"
                   whileHover={{ scale: 1.01 }}
                 >
@@ -132,18 +172,19 @@ export default function ClientSelector({ onSelect, selectedClient }: ClientSelec
                   </div>
                 </motion.div>
               ))
-            ) : (
+            ) : search.trim() ? (
               <div className="p-4 text-center">
                 <p className="text-gray-500 mb-3">No se encontraron clientes</p>
                 <button
-                  onClick={() => setShowNewClientModal(true)}
-                  className="text-pink-600 hover:text-pink-700 flex items-center gap-2 mx-auto"
+                  onClick={handleNewClientClick}
+                  className="text-pink-600 hover:text-pink-700 flex items-center gap-2 mx-auto
+                           px-4 py-2 rounded-lg hover:bg-pink-50 transition-colors"
                 >
                   <FaPlus />
                   Crear nuevo cliente
                 </button>
               </div>
-            )}
+            ) : null}
           </motion.div>
         )}
       </AnimatePresence>
@@ -151,10 +192,7 @@ export default function ClientSelector({ onSelect, selectedClient }: ClientSelec
       <ClientModal
         isOpen={showNewClientModal}
         onClose={() => setShowNewClientModal(false)}
-        onSelect={(client) => {
-          onSelect(client)
-          setShowNewClientModal(false)
-        }}
+        onSelect={handleSelectClient}
       />
     </div>
   )

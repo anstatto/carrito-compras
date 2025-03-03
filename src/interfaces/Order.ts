@@ -1,34 +1,69 @@
 import {  Decimal } from "@prisma/client/runtime/library"
 import { ProvinciaRD, AgenciaEnvio, EstadoPago, TipoPago, EstadoPedido } from "@prisma/client"
 
+interface Direccion {
+  id?: string
+  calle: string
+  numero: string
+  sector: string
+  provincia: ProvinciaRD
+  municipio: string
+  telefono: string
+  predeterminada: boolean
+  userId: string
+  codigoPostal?: string
+  referencia?: string
+  celular?: string
+  agenciaEnvio?: AgenciaEnvio
+  sucursalAgencia?: string
+}
+
+interface Cliente {
+  id: string
+  nombre: string
+  apellido: string
+  email: string
+  telefono: string | null
+  direccion?: Direccion
+}
+
+// interface Producto {
+//   id: string
+//   nombre: string
+//   precio: number
+//   existencias: number
+// }
+
+export interface OrderItem {
+  id: string
+  cantidad: number
+  precioUnit: number
+  producto: {
+    id: string
+    nombre: string
+    sku: string
+    precio: number
+    imagenes: Array<{ url: string }>
+    marca: string
+  }
+}
+
+interface MetodoPago {
+  tipo: TipoPago
+}
+
 export interface Order {
   id: string
   numero: string
   clienteId: string
-  cliente: {
-    id: string
-    nombre: string
-    apellido: string
-    email: string
-    telefono: string | null
-  }
-  subtotal: number | Decimal
-  impuestos: number | Decimal
-  costoEnvio: number | Decimal
-  total: number | Decimal
+  cliente: Cliente
+  subtotal: number
+  impuestos: number
+  costoEnvio: number
+  total: number
   estado: EstadoPedido
   estadoPago: EstadoPago
-  metodoPago: {
-    id: string
-    tipo: TipoPago
-    ultimosDigitos: string | null
-    marca: string | null
-    userId: string
-    predeterminado: boolean
-    stripePaymentMethodId: string | null
-    creadoEl: string
-    actualizadoEl: string
-  } | null
+  metodoPago: MetodoPago | null
   direccion: {
     calle: string
     numero: string
@@ -44,18 +79,18 @@ export interface Order {
   items?: Array<{
     id: string
     cantidad: number
-    precioUnit: number | Decimal
-    subtotal: number | Decimal
-    creadoEl: string
+    precioUnit: number
+    subtotal: number
+    creadoEl: Date
     producto: {
       id: string
       nombre: string
       sku: string
-      precio: number | Decimal
-      imagenes: Array<{ url: string }>
+      precio: Decimal
       marca: string
+      imagenes?: Array<{ url: string }>
     }
   }>
-  creadoEl: string
-  actualizadoEl: string
+  creadoEl: string | Date | null
+  actualizadoEl: string | Date | null
 } 

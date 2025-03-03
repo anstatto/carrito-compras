@@ -134,7 +134,7 @@ export default function ProductTable({ products, onUpdate }: ProductTableProps) 
                     alt={product.nombre}
                     width={40}
                     height={40}
-                    className="rounded-md object-cover"
+                    className="rounded-md object-cover w-10 h-10"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = '/placeholder.png';
@@ -189,7 +189,7 @@ export default function ProductTable({ products, onUpdate }: ProductTableProps) 
                     alt={product.nombre}
                     width={40}
                     height={40}
-                    className="rounded-md object-cover"
+                    className="rounded-md object-cover w-10 h-10"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = '/placeholder.png';

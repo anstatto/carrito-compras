@@ -20,6 +20,11 @@ interface CreateOrderData {
   total: number;
 }
 
+interface ProductoActualizado {
+  id: string;
+  existencias: number;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -27,9 +32,21 @@ export async function GET(request: Request) {
     const limit = Number(searchParams.get('limit')) || 10
     const estado = searchParams.get('estado') as EstadoPedido | null
     const busqueda = searchParams.get('busqueda')
+    const fechaInicio = searchParams.get('fechaInicio') || new Date().toISOString().split('T')[0]
+    const fechaFin = searchParams.get('fechaFin') || new Date().toISOString().split('T')[0]
+    const metodoPago = searchParams.get('metodoPago') as TipoPago | null
 
     const where: Prisma.PedidoWhereInput = {
       ...(estado && { estado }),
+      ...(metodoPago && {
+        metodoPago: {
+          tipo: metodoPago
+        }
+      }),
+      creadoEl: {
+        gte: new Date(`${fechaInicio}T00:00:00Z`),
+        lte: new Date(`${fechaFin}T23:59:59Z`),
+      },
       ...(busqueda && {
         OR: [
           { numero: { contains: busqueda, mode: Prisma.QueryMode.insensitive } },
@@ -60,7 +77,8 @@ export async function GET(request: Request) {
               apellido: true,
               email: true
             }
-          }
+          },
+          metodoPago: true
         }
       }),
       prisma.pedido.count({ where })
@@ -92,7 +110,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json() as CreateOrderData
-    console.log('Datos recibidos:', body)
+    //console.log('Datos recibidos:', body)
 
     const { clienteId, items, metodoPago, total } = body
 
@@ -118,7 +136,7 @@ export async function POST(request: Request) {
       }
     })
 
-    console.log('Dirección encontrada:', direccion)
+    //console.log('Dirección encontrada:', direccion)
 
     if (!direccion) {
       return NextResponse.json(
@@ -127,7 +145,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // Verificar productos
+    // Verificar productos y actualizar existencias
+    const productosActualizados: ProductoActualizado[] = []
+    
     for (const item of items) {
       const producto = await prisma.producto.findUnique({
         where: { id: item.productoId }
@@ -146,52 +166,78 @@ export async function POST(request: Request) {
           { status: 400 }
         )
       }
+
+      productosActualizados.push({
+        id: producto.id,
+        existencias: producto.existencias - item.cantidad
+      })
     }
 
-    // Crear el pedido
-    const pedido = await prisma.pedido.create({
+    // Crear método de pago
+    const metodoPagoCreado = await prisma.metodoPago.create({
       data: {
-        numero: `PED-${Date.now()}`,
-        clienteId,
-        direccionId: direccion.id,
-        metodoPagoId: metodoPago,
-        estado: 'PENDIENTE',
-        estadoPago: 'PENDIENTE',
-        total: new Prisma.Decimal(total),
-        items: {
-          create: items.map(item => ({
-            productoId: item.productoId,
-            cantidad: item.cantidad,
-            precioUnit: new Prisma.Decimal(item.precioUnit),
-            subtotal: new Prisma.Decimal(Number(item.precioUnit) * item.cantidad)
-          }))
-        }
-      },
-      include: {
-        items: {
-          include: {
-            producto: true
+        tipo: metodoPago,
+        userId: clienteId,
+      }
+    });
+
+    // Crear el pedido y actualizar existencias en una transacción
+    const pedido = await prisma.$transaction(async (prisma) => {
+      // Crear el pedido
+      const nuevoPedido = await prisma.pedido.create({
+        data: {
+          numero: `PED-${Date.now()}`,
+          clienteId,
+          direccionId: direccion.id,
+          metodoPagoId: metodoPagoCreado.id,
+          estado: 'PENDIENTE',
+          estadoPago: 'PENDIENTE',
+          total: new Prisma.Decimal(total),
+          items: {
+            create: items.map(item => ({
+              productoId: item.productoId,
+              cantidad: item.cantidad,
+              precioUnit: new Prisma.Decimal(item.precioUnit),
+              subtotal: new Prisma.Decimal(Number(item.precioUnit) * item.cantidad)
+            }))
           }
         },
-        cliente: true,
-        direccion: true
+        include: {
+          items: {
+            include: {
+              producto: true
+            }
+          },
+          cliente: true,
+          direccion: true,
+          metodoPago: true
+        }
+      })
+
+      // Actualizar existencias de productos
+      for (const producto of productosActualizados) {
+        await prisma.producto.update({
+          where: { id: producto.id },
+          data: { existencias: producto.existencias }
+        })
       }
+
+      return nuevoPedido
     })
 
-    console.log('Pedido creado:', pedido)
-
-    return NextResponse.json({ success: true, data: pedido })
+    return NextResponse.json({ 
+      success: true, 
+      data: pedido 
+    })
 
   } catch (error) {
     console.error('Error detallado al crear pedido:', error)
-    return new NextResponse(
-      JSON.stringify({ error: 'Error al crear el pedido' }),
+    return NextResponse.json(
       { 
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al crear el pedido'
+      },
+      { status: 500 }
     )
   }
 }

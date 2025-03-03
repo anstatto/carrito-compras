@@ -1,9 +1,10 @@
 'use client'
 
+
 import { motion } from 'framer-motion'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { TipoPago } from '@prisma/client'
+import { EstadoPedido, TipoPago } from '@prisma/client'
 import { useRouter } from 'next/navigation'
 import { 
   FaEye, 
@@ -13,50 +14,52 @@ import {
   FaBox,
   FaTimesCircle,
   FaClock,
-  FaCreditCard
+  FaCreditCard,
+  FaMoneyBill,
+  FaUniversity
 } from 'react-icons/fa'
 
 import { Order } from '@/interfaces/Order'
 
-interface MetodoPago {
-  tipo: TipoPago
-}
-
 interface OrdersTableProps {
   orders: Order[]
-  onUpdateStatus: (orderId: string, newStatus: string) => Promise<void>
+  onUpdateStatus: (orderId: string, newStatus: EstadoPedido) => Promise<void>
+  onUpdatePaymentMethod: (orderId: string, newPaymentMethod: TipoPago) => Promise<void>
 }
 
 const formatMoney = (amount: number | string | { toString: () => string }) => {
   const value = typeof amount === 'number' ? amount : parseFloat(amount.toString())
-  return `$${value.toFixed(2)}`
+  return `RD$${value.toFixed(2)}`
 }
 
-const getPaymentMethod = (metodoPago: MetodoPago | null | undefined) => {
-  if (!metodoPago) return 'No especificado'
-  return metodoPago.tipo || 'No especificado'
+const iconos = {
+  EFECTIVO: <FaMoneyBill className="text-green-500" />,
+  TRANSFERENCIA: <FaUniversity className="text-blue-500" />,
+  TARJETA: <FaCreditCard className="text-purple-500" />,
+  STRIPE: <FaCreditCard className="text-pink-500" />
 }
 
-export default function OrdersTable({ orders, onUpdateStatus }: OrdersTableProps) {
+export default function OrdersTable({ orders, onUpdateStatus, onUpdatePaymentMethod }: OrdersTableProps) {
   const router = useRouter()
 
   if (!Array.isArray(orders)) {
     return <div>No hay órdenes para mostrar</div>
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: EstadoPedido) => {
     const colors = {
       PENDIENTE: 'bg-yellow-100 text-yellow-800',
       PAGADO: 'bg-green-100 text-green-800',
       PREPARANDO: 'bg-blue-100 text-blue-800',
       ENVIADO: 'bg-purple-100 text-purple-800',
       ENTREGADO: 'bg-gray-100 text-gray-800',
-      CANCELADO: 'bg-red-100 text-red-800'
-    }
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'
+      CANCELADO: 'bg-red-100 text-red-800',
+      CONFIRMADO: 'bg-blue-100 text-blue-800'
+    } as const
+    return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: EstadoPedido) => {
     switch (status) {
       case 'PENDIENTE': return <FaClock className="text-yellow-500" />
       case 'PAGADO': return <FaCheck className="text-green-500" />
@@ -64,7 +67,37 @@ export default function OrdersTable({ orders, onUpdateStatus }: OrdersTableProps
       case 'ENVIADO': return <FaTruck className="text-purple-500" />
       case 'ENTREGADO': return <FaCheck className="text-gray-500" />
       case 'CANCELADO': return <FaTimesCircle className="text-red-500" />
+      case 'CONFIRMADO': return <FaCheck className="text-blue-500" />
       default: return null
+    }
+  }
+
+  const handlePrint = async (orderId: string) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}?format=pdf`, {
+        method: 'GET',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Error al generar el PDF')
+      }
+      
+      // Obtener el blob del PDF
+      const blob = await response.blob()
+      
+      // Crear URL del blob
+      const url = window.URL.createObjectURL(blob)
+      
+      // Abrir en nueva pestaña
+      window.open(url, '_blank')
+      
+      // Limpiar URL después de un momento
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+      }, 100)
+    } catch (error) {
+      console.error('Error al imprimir:', error)
+      alert('Error al generar el PDF')
     }
   }
 
@@ -136,7 +169,7 @@ export default function OrdersTable({ orders, onUpdateStatus }: OrdersTableProps
                       {getStatusIcon(order.estado)}
                       <select
                         value={order.estado}
-                        onChange={(e) => onUpdateStatus(order.id, e.target.value)}
+                        onChange={(e) => onUpdateStatus(order.id, e.target.value as EstadoPedido)}
                         className={`text-sm rounded-full px-3 py-1 font-medium
                           ${getStatusColor(order.estado)}`}
                       >
@@ -146,19 +179,40 @@ export default function OrdersTable({ orders, onUpdateStatus }: OrdersTableProps
                         <option value="ENVIADO">Enviado</option>
                         <option value="ENTREGADO">Entregado</option>
                         <option value="CANCELADO">Cancelado</option>
+                        <option value="CONFIRMADO">Confirmado</option>
                       </select>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <FaCreditCard className="text-gray-400" />
-                      <span className="text-sm">{getPaymentMethod(order.metodoPago)}</span>
+                      {iconos[order.metodoPago?.tipo || 'TARJETA']}
+                      <select
+                        value={order.metodoPago?.tipo || ''}
+                        onChange={(e) => onUpdatePaymentMethod(order.id, e.target.value as TipoPago)}
+                        className={`text-sm rounded-full px-3 py-1 font-medium
+                          ${order.metodoPago?.tipo === 'EFECTIVO' ? 'text-green-600' : ''}
+                          ${order.metodoPago?.tipo === 'TRANSFERENCIA' ? 'text-blue-600' : ''}
+                          ${order.metodoPago?.tipo === 'TARJETA' ? 'text-purple-600' : ''}
+                          ${order.metodoPago?.tipo === 'STRIPE' ? 'text-pink-600' : ''}
+                          border border-gray-200
+                        `}
+                      >
+                        <option value="">Seleccionar método</option>
+                        <option value="EFECTIVO">Efectivo</option>
+                        <option value="TRANSFERENCIA">Transferencia</option>
+                        <option value="TARJETA">Tarjeta</option>
+                        <option value="STRIPE">Stripe</option>
+                      </select>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex items-center gap-2">
                       <FaClock className="text-gray-400" />
-                      {format(new Date(order.creadoEl), 'dd/MM/yyyy HH:mm', { locale: es })}
+                      {order.creadoEl ? (
+                        format(new Date(order.creadoEl), 'dd/MM/yyyy HH:mm', { locale: es })
+                      ) : (
+                        'Fecha no disponible'
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -166,12 +220,14 @@ export default function OrdersTable({ orders, onUpdateStatus }: OrdersTableProps
                       <button
                         onClick={() => router.push(`/admin/orders/${order.id}`)}
                         className="text-pink-600 hover:text-pink-700 p-2 rounded-full hover:bg-pink-50"
+                        title="Ver detalles"
                       >
                         <FaEye />
                       </button>
                       <button
-                        onClick={() => window.print()}
+                        onClick={() => handlePrint(order.id)}
                         className="text-gray-600 hover:text-gray-700 p-2 rounded-full hover:bg-gray-50"
+                        title="Imprimir orden"
                       >
                         <FaPrint />
                       </button>

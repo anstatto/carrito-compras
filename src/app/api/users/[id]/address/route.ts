@@ -22,13 +22,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       }
     })
 
-    if (!address) {
-      return NextResponse.json({ error: 'Dirección no encontrada' }, { status: 404 });
-    }
-
     return NextResponse.json({
       hasDefaultAddress: !!address,
-      address
+      address: address || null
     })
   } catch (error) {
     console.error('Error al obtener dirección:', error)

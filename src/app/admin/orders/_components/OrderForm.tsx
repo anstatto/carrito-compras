@@ -21,7 +21,6 @@ interface Address {
   telefono: string;
   predeterminada: boolean;
   userId: string;
-  // campos opcionales
   codigoPostal?: string;
   referencia?: string;
   celular?: string;
@@ -33,8 +32,21 @@ interface OrderFormProps {
   onSuccess: () => void;
 }
 
+interface OrderData {
+  clienteId: string;
+  items: Array<{
+    productoId: string;
+    cantidad: number;
+    precioUnit: number;
+  }>;
+  metodoPago: TipoPago;
+  total: number;
+}
+
 const getNumericPrice = (precio: string | number): number => {
-  return typeof precio === 'string' ? parseFloat(precio) : precio;
+  const value = typeof precio === 'string' ? parseFloat(precio) : precio;
+  if (isNaN(value)) throw new Error('Precio inválido');
+  return value;
 };
 
 export default function OrderForm({ onSuccess }: OrderFormProps) {
@@ -42,40 +54,69 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
   const [address, setAddress] = useState<Address | null>(null);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [paymentType, setPaymentType] = useState<TipoPago>(TipoPago.TARJETA);
+  const [paymentType, setPaymentType] = useState<TipoPago>(TipoPago.EFECTIVO);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handlePaymentChange = (type: TipoPago) => {
+    setPaymentType(type);
+  };
+
   const checkClientAddress = useCallback(async () => {
+    if (!client?.id) return;
+
     try {
-      const res = await fetch(`/api/users/${client?.id}/address`);
+      const res = await fetch(`/api/users/${client.id}/address`);
+      if (!res.ok) throw new Error('Error al obtener la dirección');
+      
       const data = await res.json();
       
       if (!data.hasDefaultAddress) {
+        toast('Este cliente necesita una dirección de envío', {
+          icon: 'ℹ️',
+          style: {
+            background: '#3B82F6',
+            color: '#fff'
+          }
+        });
         setShowAddressModal(true);
+        setAddress(null);
       } else {
         setAddress(data.address);
+        setShowAddressModal(false);
       }
     } catch (error) {
       console.error('Error checking address:', error);
-      toast.error('Error al verificar la dirección');
+      toast.error(error instanceof Error ? error.message : 'Error al verificar la dirección');
+      setAddress(null);
     }
   }, [client?.id]);
 
   useEffect(() => {
     if (client) {
       checkClientAddress();
+    } else {
+      setAddress(null);
+      setShowAddressModal(false);
     }
   }, [client, checkClientAddress]);
 
   const handleAddressSubmit = async (addressData: Address) => {
+    if (!client?.id) {
+      toast.error('Selecciona un cliente primero');
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/users/${client?.id}/address`, {
+      const res = await fetch(`/api/users/${client.id}/address`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...addressData, predeterminada: true })
       });
 
-      if (!res.ok) throw new Error('Error al guardar la dirección');
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Error al guardar la dirección');
+      }
 
       const data = await res.json();
       setAddress(data);
@@ -83,37 +124,56 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
       toast.success('Dirección guardada correctamente');
     } catch (error) {
       console.error('Error saving address:', error);
-      toast.error('Error al guardar la dirección');
+      toast.error(error instanceof Error ? error.message : 'Error al guardar la dirección');
     }
   };
 
-  const total = products.reduce((sum, p) => {
-    const numericPrice = typeof p.precio === 'string' ? parseFloat(p.precio) : p.precio;
-    return sum + numericPrice * p.cantidad;
-  }, 0);
+  const calculateTotal = useCallback(() => {
+    return products.reduce((sum, p) => {
+      try {
+        const numericPrice = getNumericPrice(p.precio);
+        return sum + numericPrice * p.cantidad;
+      } catch (error) {
+        console.error(`Error calculating price for product ${p.id}:`, error);
+        return sum;
+      }
+    }, 0);
+  }, [products]);
 
-  const handleSubmit = async () => {
+  const total = calculateTotal();
+
+  const validateOrder = (): boolean => {
     if (!client) {
       toast.error("Por favor selecciona un cliente");
-      return;
+      return false;
     }
 
     if (!address) {
       toast.error("El cliente necesita una dirección");
       setShowAddressModal(true);
-      return;
+      return false;
     }
 
     if (products.length === 0) {
       toast.error("Agrega al menos un producto");
-      return;
+      return false;
     }
 
+    if (total <= 0) {
+      toast.error("El total debe ser mayor a 0");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateOrder()) return;
     setIsSubmitting(true);
 
     try {
-      const orderData = {
-        clienteId: client.id,
+      const orderData: OrderData = {
+        clienteId: client!.id,
         items: products.map(p => ({
           productoId: p.id,
           cantidad: p.cantidad,
@@ -122,13 +182,6 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
         metodoPago: paymentType,
         total: total
       };
-
-      console.log('Datos del pedido a enviar:', {
-        cliente: client,
-        direccion: address,
-        productos: products,
-        orderData
-      });
 
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -139,7 +192,6 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
       });
 
       const data = await response.json();
-      console.log('Respuesta del servidor:', data);
       
       if (!response.ok) {
         throw new Error(data.error || 'Error al crear la orden');
@@ -148,7 +200,7 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
       toast.success('Orden creada exitosamente');
       setClient(null);
       setProducts([]);
-      setPaymentType(TipoPago.TARJETA);
+      setPaymentType(TipoPago.EFECTIVO);
       onSuccess();
 
     } catch (error) {
@@ -183,6 +235,18 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
                 <p>{address.calle} #{address.numero}</p>
                 <p>{address.sector}, {address.municipio}</p>
                 <p>{address.provincia}</p>
+                {address.agenciaEnvio && (
+                  <>
+                    <p className="mt-1 text-pink-600">
+                      Agencia: {address.agenciaEnvio.replace(/_/g, ' ')}
+                    </p>
+                    {address.sucursalAgencia && (
+                      <p className="text-pink-600">
+                        Sucursal: {address.sucursalAgencia}
+                      </p>
+                    )}
+                  </>
+                )}
                 <button 
                   onClick={() => setShowAddressModal(true)}
                   className="text-pink-600 text-xs mt-1"
@@ -196,7 +260,10 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Método de Pago
               </label>
-              <PaymentSelector onChange={setPaymentType} />
+              <PaymentSelector 
+                value={paymentType} 
+                onChange={handlePaymentChange}
+              />
             </div>
           </div>
 

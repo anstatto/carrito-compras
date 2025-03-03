@@ -1,12 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { EstadoPedido } from '@prisma/client'
-import { FaSearch } from 'react-icons/fa'
+import { EstadoPedido, TipoPago } from '@prisma/client'
+import { FaSearch, FaTimes } from 'react-icons/fa'
 
 export interface OrderFilters {
   estado?: EstadoPedido | undefined
   busqueda?: string
+  metodoPago?: TipoPago | undefined
+  fechaInicio?: string
+  fechaFin?: string
   page: number
   limit: number
 }
@@ -30,24 +33,42 @@ export default function OrderFilters({
     page: currentPage,
     limit: 10,
     estado: initialFilters.estado,
-    busqueda: initialFilters.busqueda || ''
+    busqueda: initialFilters.busqueda || '',
+    metodoPago: initialFilters.metodoPago,
+    fechaInicio: initialFilters.fechaInicio,
+    fechaFin: initialFilters.fechaFin
   })
 
   useEffect(() => {
-    setFilters(prev => ({
-      ...prev,
-      ...initialFilters,
-      page: currentPage
-    }))
-  }, [currentPage, initialFilters])
+    const hasInitialFiltersChanged = 
+      initialFilters.estado !== filters.estado ||
+      initialFilters.busqueda !== filters.busqueda ||
+      initialFilters.metodoPago !== filters.metodoPago ||
+      initialFilters.fechaInicio !== filters.fechaInicio ||
+      initialFilters.fechaFin !== filters.fechaFin
+    
+    const hasPageChanged = currentPage !== filters.page
+
+    if (hasInitialFiltersChanged || hasPageChanged) {
+      setFilters(prev => ({
+        ...prev,
+        estado: initialFilters.estado ?? prev.estado,
+        busqueda: initialFilters.busqueda ?? prev.busqueda,
+        metodoPago: initialFilters.metodoPago ?? prev.metodoPago,
+        fechaInicio: initialFilters.fechaInicio ?? prev.fechaInicio,
+        fechaFin: initialFilters.fechaFin ?? prev.fechaFin,
+        page: currentPage
+      }))
+    }
+  }, [currentPage, initialFilters.estado, initialFilters.busqueda, initialFilters.metodoPago, initialFilters.fechaInicio, initialFilters.fechaFin, filters.estado, filters.busqueda, filters.metodoPago, filters.fechaInicio, filters.fechaFin, filters.page])
 
   const handleFilterChange = (newFilters: Partial<OrderFilters>) => {
     const updatedFilters = { 
       ...filters, 
       ...newFilters,
-      page: 'page' in newFilters ? newFilters.page! : 1,
-      estado: 'estado' in newFilters ? newFilters.estado : filters.estado
+      page: 'page' in newFilters ? newFilters.page! : 1
     }
+    
     setFilters(updatedFilters)
     onFilterChange(updatedFilters)
   }
@@ -65,6 +86,14 @@ export default function OrderFilters({
             onChange={(e) => handleFilterChange({ busqueda: e.target.value })}
             className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300"
           />
+          {filters.busqueda && (
+            <button
+              onClick={() => handleFilterChange({ busqueda: '' })}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <FaTimes />
+            </button>
+          )}
         </div>
         <select
           value={filters.estado || ''}
@@ -83,6 +112,23 @@ export default function OrderFilters({
           <option value="ENVIADO">Enviado</option>
           <option value="ENTREGADO">Entregado</option>
           <option value="CANCELADO">Cancelado</option>
+        </select>
+        <select
+          value={filters.metodoPago || ''}
+          onChange={(e) => {
+            const value = e.target.value;
+            handleFilterChange({ 
+              metodoPago: value ? (value as TipoPago) : undefined 
+            })
+          }}
+          className="rounded-lg border border-gray-300 py-2 px-4"
+        >
+          <option value="">Todos los métodos de pago</option>
+          <option value="EFECTIVO">Efectivo</option>
+          <option value="TARJETA">Tarjeta</option>
+          <option value="TRANSFERENCIA">Transferencia</option>
+          <option value="PAYPAL">PayPal</option>
+          <option value="MERCADO_PAGO">Mercado Pago</option>
         </select>
       </div>
 

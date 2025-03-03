@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import OrderDetails from './_components/OrderDetails'
 import { notFound } from 'next/navigation'
-
+import type { Order } from '@/interfaces/Order'
 interface Props {
   params: Promise<{
     id: string
@@ -52,18 +52,16 @@ export default async function OrderPage({ params }: Props) {
     impuestos: order.impuestos.toNumber(),
     costoEnvio: order.costoEnvio.toNumber(),
     total: order.total.toNumber(),
-    creadoEl: order.creadoEl.toISOString(),
-    actualizadoEl: order.actualizadoEl.toISOString(),
+    creadoEl: order.creadoEl ? new Date(order.creadoEl) : null,
+    actualizadoEl: order.actualizadoEl ? new Date(order.actualizadoEl) : null,
     metodoPago: order.metodoPago ? {
-      ...order.metodoPago,
-      creadoEl: order.metodoPago.creadoEl.toISOString(),
-      actualizadoEl: order.metodoPago.actualizadoEl.toISOString()
+      tipo: order.metodoPago.tipo
     } : null,
     items: order.items.map(item => ({
       ...item,
       precioUnit: item.precioUnit.toNumber(),
       subtotal: item.subtotal.toNumber(),
-      creadoEl: item.creadoEl.toISOString(),
+      creadoEl: new Date(item.creadoEl),
       producto: {
         ...item.producto,
         precio: item.producto.precio.toNumber()
@@ -71,5 +69,5 @@ export default async function OrderPage({ params }: Props) {
     }))
   }
 
-  return <OrderDetails initialOrder={serializedOrder} orderId={id} />
+  return <OrderDetails initialOrder={serializedOrder as unknown as Order} orderId={id} />
 } 
