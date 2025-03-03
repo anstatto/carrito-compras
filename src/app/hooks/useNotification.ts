@@ -1,8 +1,8 @@
-import toast from 'react-hot-toast'
+import toast, { Renderable } from 'react-hot-toast'
 
 type NotificationOptions = {
   duration?: number
-  icon?: string | React.ReactNode
+  icon?: Renderable
 }
 
 export const useNotification = () => {
