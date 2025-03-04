@@ -82,9 +82,7 @@ export const ProductForm = memo(function ProductForm({
         descripcion: formData.descripcion.trim(),
         imagenes: formData.imagenes.map(img => ({
           ...img,
-          url: img.url.includes('') 
-            ? img.url 
-            : `/productos/${img.url.split('/').pop()}`,
+          url: img.url,
           alt: img.alt?.trim() || 'Imagen de producto'
         })),
         precio: Number(formData.precio) || 0,

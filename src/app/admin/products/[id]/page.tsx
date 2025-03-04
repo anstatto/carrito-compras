@@ -229,7 +229,7 @@ export default function ShowProductPage({ params }: Props) {
                       alt={imagen.alt || `${product.nombre} - Imagen ${index + 1}`}
                       priority={index === 0}
                       sizes="(max-width: 768px) 50vw, 33vw"
-                      className="transition-transform group-hover:scale-110"
+                      className="object-cover transition-transform group-hover:scale-110"
                       fill={true}
                     />
                   </div>

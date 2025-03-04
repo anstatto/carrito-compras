@@ -127,13 +127,10 @@ export const ImageSelector = memo(function ImageSelector({
         const uploadedFiles = Array.isArray(data) ? data : [data]
         
         for (const uploadedFile of uploadedFiles) {
-          const imageUrl = uploadedFile.url
-          const url = imageUrl.includes('/productos/') 
-            ? imageUrl 
-            : `/productos/${imageUrl.split('/').pop()}`
+          const imageUrl = uploadedFile.url;
 
           newImages.push({ 
-            url,
+            url: imageUrl,
             alt: file.name.replace(/\.[^/.]+$/, '') || 'Imagen de producto'
           })
         }
@@ -178,14 +175,28 @@ export const ImageSelector = memo(function ImageSelector({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg">
         {currentImages.map((image, index) => (
-          <ImagePreview 
+          <div
             key={image.url}
-            image={image}
-            index={index}
-            onRemove={handleRemoveImage}
-          />
+            className="relative aspect-square bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="absolute inset-0 p-2">
+              <Image
+                src={image.url}
+                alt={image.alt || `Producto ${index + 1}`}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-contain hover:scale-105 transition-transform duration-300"
+              />
+            </div>
+            <button
+              onClick={() => handleRemoveImage(index)}
+              className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 hover:bg-red-600"
+            >
+              <FaTimes size={12} />
+            </button>
+          </div>
         ))}
       </div>
 
@@ -223,14 +234,12 @@ export const ImageSelector = memo(function ImageSelector({
                   <Gallery 
                     selectionMode="url-only"
                     onImageSelect={(image) => {
-                      // Usar la URL completa de Cloudinary
                       const imageUrl = typeof image === 'string' ? image : image.url;
                       
-                      // Agregar la nueva imagen al array de imágenes
                       onImagesChange([
                         ...currentImages, 
                         { 
-                          url: imageUrl, // Usar la URL completa sin modificar
+                          url: imageUrl,
                           alt: typeof image === 'string' ? 'Imagen de producto' : image.name
                         }
                       ]);

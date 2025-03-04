@@ -11,8 +11,6 @@ interface OptimizedImageProps {
   sizes?: string
 }
 
-const CLOUDINARY_URL = 'https://res.cloudinary.com/dwga2dsbz/image/upload'
-
 export default function OptimizedImage({
   src,
   alt,
@@ -25,19 +23,9 @@ export default function OptimizedImage({
 }: OptimizedImageProps) {
   if (!src) return null
 
-  // Si ya es una URL completa de Cloudinary, la usamos tal cual
-  // Si es una ruta parcial, construimos la URL completa
-  const imageUrl = src.startsWith('http') 
-    ? src 
-    : src.startsWith('/v1') 
-      ? `${CLOUDINARY_URL}${src}`
-      : src.startsWith('/productos') 
-        ? `${CLOUDINARY_URL}/v1741054256${src}`
-        : src
-
   return (
     <Image
-      src={imageUrl}
+      src={src}
       alt={alt}
       width={!fill ? width : undefined}
       height={!fill ? height : undefined}
