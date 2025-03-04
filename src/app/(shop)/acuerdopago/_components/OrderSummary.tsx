@@ -3,6 +3,7 @@
 import React from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
+import { MarcaProducto } from '@prisma/client'
 
 interface CartItem {
   id: string
@@ -10,6 +11,7 @@ interface CartItem {
   precio: number
   imagen: string
   cantidad: number
+  marca: MarcaProducto
 }
 
 interface OrderSummaryProps {
@@ -18,6 +20,10 @@ interface OrderSummaryProps {
 
 export default function OrderSummary({ items }: OrderSummaryProps) {
   const total = items.reduce((acc, item) => acc + (item.precio * item.cantidad), 0)
+
+  const formatMarca = (marca: MarcaProducto) => {
+    return marca.replace(/_/g, " ")
+  }
 
   return (
     <motion.div 
@@ -47,7 +53,12 @@ export default function OrderSummary({ items }: OrderSummaryProps) {
             </div>
             <div className="flex-1">
               <p className="font-medium text-gray-800">{item.nombre}</p>
-              <p className="text-sm text-gray-500">Cantidad: {item.cantidad}</p>
+              <p className="text-sm text-gray-500">
+                {formatMarca(item.marca)} - Cantidad: {item.cantidad}
+              </p>
+              <p className="text-sm text-gray-500">
+                Precio unitario: RD${item.precio.toFixed(2)}
+              </p>
             </div>
             <p className="font-semibold text-pink-500">
               RD${(item.precio * item.cantidad).toFixed(2)}
@@ -57,10 +68,17 @@ export default function OrderSummary({ items }: OrderSummaryProps) {
       </div>
 
       <div className="pt-4 border-t border-pink-100">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-600">Subtotal</span>
+          <span className="text-gray-800">RD${total.toFixed(2)}</span>
+        </div>
         <div className="flex justify-between font-semibold text-lg">
           <span>Total</span>
           <span className="text-pink-500">RD${total.toFixed(2)}</span>
         </div>
+        <p className="text-sm text-gray-500 mt-2 text-center">
+          Los costos de envío se calcularán en el siguiente paso
+        </p>
       </div>
     </motion.div>
   )
