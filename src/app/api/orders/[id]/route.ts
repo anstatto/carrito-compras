@@ -2,199 +2,121 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from '@/lib/auth'
-import puppeteer from 'puppeteer'
+import { jsPDF } from 'jspdf'
+import 'jspdf-autotable'
+import type { UserOptions } from 'jspdf-autotable'
 import type { Order } from '@/interfaces/Order'
 
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: UserOptions) => void;
+  lastAutoTable: { finalY: number };
+}
+
 async function generatePDF(order: Order) {
-  const browser = await puppeteer.launch({ 
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu'
-    ]
-  })
-  const page = await browser.newPage()
+  // Crear nuevo documento PDF
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  }) as jsPDFWithAutoTable
+
+  // Configurar fuente
+  doc.setFont('helvetica')
+
+  // Agregar logo y encabezado
+  doc.setFontSize(24)
+  doc.text('ArlingLow Care', doc.internal.pageSize.width / 2, 20, { align: 'center' })
   
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Orden #${order.numero}</title>
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          margin: 0;
-          padding: 20px;
-          color: #333;
-        }
-        .header {
-          text-align: center;
-          margin-bottom: 30px;
-        }
-        .logo {
-          width: 128px;
-          height: 128px;
-          margin-bottom: 15px;
-          object-fit: contain;
-        }
-        .order-title {
-          font-size: 24px;
-          margin: 10px 0;
-        }
-        .order-number {
-          font-size: 16px;
-          color: #666;
-        }
-        .section {
-          margin: 20px 0;
-          padding: 15px;
-          border: 1px solid #eee;
-          border-radius: 5px;
-        }
-        .section-title {
-          font-size: 18px;
-          color: #2c5282;
-          margin-bottom: 10px;
-        }
-        .info-grid {
-          display: grid;
-          grid-template-columns: auto 1fr;
-          gap: 5px;
-          margin: 10px 0;
-        }
-        .label {
-          font-weight: bold;
-          color: #4a5568;
-        }
-        .products-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 20px 0;
-        }
-        .products-table th {
-          background: #f7fafc;
-          padding: 10px;
-          text-align: left;
-          border-bottom: 2px solid #e2e8f0;
-        }
-        .products-table td {
-          padding: 10px;
-          border-bottom: 1px solid #e2e8f0;
-        }
-        .total {
-          text-align: right;
-          font-size: 18px;
-          font-weight: bold;
-          margin: 20px 0;
-        }
-        .footer {
-          margin-top: 50px;
-          text-align: center;
-          color: #666;
-          border-top: 1px solid #eee;
-          padding-top: 20px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <img src="https://arlinglowcare.shop/favicon.ico" class="logo" alt="Logo">
-        <h1 class="order-title">Orden de Compra</h1>
-        <div class="order-number">#${order.numero}</div>
-        <div class="order-date">${order.creadoEl ? new Date(order.creadoEl).toLocaleDateString('es', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }) : 'Fecha no disponible'}</div>
-      </div>
+  doc.setFontSize(16)
+  doc.text(`Orden de Compra #${order.numero}`, doc.internal.pageSize.width / 2, 30, { align: 'center' })
+  
+  doc.setFontSize(12)
+  doc.text(
+    `Fecha: ${order.creadoEl ? new Date(order.creadoEl).toLocaleDateString('es-ES') : ''}`,
+    doc.internal.pageSize.width / 2,
+    37,
+    { align: 'center' }
+  )
 
-      <div class="section">
-        <h2 class="section-title">Información del Cliente</h2>
-        <div class="info-grid">
-          <span class="label">Nombre:</span>
-          <span>${order.cliente.nombre} ${order.cliente.apellido}</span>
-          <span class="label">Email:</span>
-          <span>${order.cliente.email}</span>
-          <span class="label">Teléfono:</span>
-          <span>${order.cliente.telefono || 'No especificado'}</span>
-        </div>
-      </div>
+  // Información del cliente
+  doc.setFontSize(14)
+  doc.text('Información del Cliente', 20, 50)
+  doc.setFontSize(12)
+  doc.text([
+    `Nombre: ${order.cliente.nombre} ${order.cliente.apellido}`,
+    `Email: ${order.cliente.email}`,
+    `Teléfono: ${order.cliente.telefono || 'No especificado'}`
+  ], 20, 60)
 
-      <div class="section">
-        <h2 class="section-title">Dirección de Envío</h2>
-        <div class="info-grid">
-          <span class="label">Dirección:</span>
-          <span>${order.direccion.calle} #${order.direccion.numero}</span>
-          <span class="label">Sector:</span>
-          <span>${order.direccion.sector}</span>
-          <span class="label">Municipio:</span>
-          <span>${order.direccion.municipio}</span>
-          <span class="label">Provincia:</span>
-          <span>${order.direccion.provincia}</span>
-          ${order.direccion.agenciaEnvio ? `
-            <span class="label">Agencia:</span>
-            <span>${order.direccion.agenciaEnvio.replace(/_/g, ' ')}</span>
-          ` : ''}
-          ${order.direccion.sucursalAgencia ? `
-            <span class="label">Sucursal:</span>
-            <span>${order.direccion.sucursalAgencia}</span>
-          ` : ''}
-        </div>
-      </div>
+  // Dirección de envío
+  doc.setFontSize(14)
+  doc.text('Dirección de Envío', 20, 85)
+  doc.setFontSize(12)
+  const direccionLines = [
+    `Dirección: ${order.direccion.calle} #${order.direccion.numero}`,
+    `Sector: ${order.direccion.sector}`,
+    `Municipio: ${order.direccion.municipio}`,
+    `Provincia: ${order.direccion.provincia}`
+  ]
 
-      <div class="section">
-        <h2 class="section-title">Productos</h2>
-        <table class="products-table">
-          <thead>
-            <tr>
-              <th>Producto</th>
-              <th>Cantidad</th>
-              <th>Precio Unit.</th>
-              <th>Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${order.items?.map((item) => `
-              <tr>
-                <td>${item.producto.nombre}</td>
-                <td>${item.cantidad}</td>
-                <td>RD$${Number(item.precioUnit).toFixed(2)}</td>
-                <td>RD$${(Number(item.precioUnit) * item.cantidad).toFixed(2)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <div class="total">
-          Total: RD$${Number(order.total).toFixed(2)}
-        </div>
-      </div>
+  if (order.direccion.agenciaEnvio) {
+    direccionLines.push(
+      `Agencia: ${order.direccion.agenciaEnvio.replace(/_/g, ' ')}`,
+      `Sucursal: ${order.direccion.sucursalAgencia || 'No especificada'}`
+    )
+  }
 
-      <div class="footer">
-        <p>¡Gracias por tu compra!</p>
- 
-      </div>
-    </body>
-    </html>
-  `
+  doc.text(direccionLines, 20, 95)
 
-  await page.setContent(html)
-  const pdf = await page.pdf({
-    format: 'A4',
-    margin: {
-      top: '20px',
-      right: '20px',
-      bottom: '20px',
-      left: '20px'
+  // Tabla de productos
+  const tableData = order.items?.map(item => [
+    item.producto.nombre,
+    item.cantidad.toString(),
+    `RD$${Number(item.precioUnit).toFixed(2)}`,
+    `RD$${(Number(item.precioUnit) * item.cantidad).toFixed(2)}`
+  ]) || []
+
+
+  doc.autoTable({
+    startY: 130,
+    head: [['Producto', 'Cantidad', 'Precio', 'Subtotal']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [233, 30, 99],
+      textColor: 255,
+      fontSize: 12,
+      fontStyle: 'bold'
+    },
+    styles: {
+      fontSize: 11,
+      cellPadding: 5
+    },
+    columnStyles: {
+      0: { cellWidth: 80 },
+      1: { cellWidth: 30, halign: 'center' },
+      2: { cellWidth: 40, halign: 'right' },
+      3: { cellWidth: 40, halign: 'right' }
     }
   })
 
-  await browser.close()
-  return pdf
+  // Total
+  const finalY = doc.lastAutoTable?.finalY || 150
+  doc.setFontSize(14)
+  doc.text(
+    `Total: RD$${Number(order.total).toFixed(2)}`,
+    doc.internal.pageSize.width - 20,
+    finalY + 10,
+    { align: 'right' }
+  )
+
+  // Pie de página
+  const pageHeight = doc.internal.pageSize.height
+  doc.setFontSize(10)
+  doc.text('¡Gracias por tu compra!', doc.internal.pageSize.width / 2, pageHeight - 20, { align: 'center' })
+  doc.text('ArlingLow Care', doc.internal.pageSize.width / 2, pageHeight - 15, { align: 'center' })
+
+  return Buffer.from(doc.output('arraybuffer'))
 }
 
 export async function GET(
@@ -243,42 +165,46 @@ export async function GET(
     const format = searchParams.get('format')
 
     if (format === 'pdf') {
-      const orderForPdf = {
-        ...order,
-        subtotal: order.subtotal.toNumber(),
-        impuestos: order.impuestos.toNumber(),
-        costoEnvio: order.costoEnvio.toNumber(),
-        total: order.total.toNumber(),
-        items: order.items.map(item => ({
-          ...item,
-          precioUnit: item.precioUnit.toNumber(),
-          subtotal: item.subtotal.toNumber(),
-          producto: {
-            ...item.producto,
-            precio: item.producto.precio.toNumber()
-          }
-        }))
-      }
-      const pdfBuffer = await generatePDF(orderForPdf as unknown as Order)
-      
-      return new NextResponse(pdfBuffer, {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="orden-${order.numero}.pdf"`
+      try {
+        const orderForPdf = {
+          ...order,
+          subtotal: order.subtotal.toNumber(),
+          impuestos: order.impuestos.toNumber(),
+          costoEnvio: order.costoEnvio.toNumber(),
+          total: order.total.toNumber(),
+          items: order.items.map(item => ({
+            ...item,
+            precioUnit: item.precioUnit.toNumber(),
+            subtotal: item.subtotal.toNumber(),
+            producto: {
+              ...item.producto,
+              precio: item.producto.precio.toNumber()
+            }
+          }))
         }
-      })
+
+        const pdfBuffer = await generatePDF(orderForPdf as unknown as Order)
+        
+        return new NextResponse(pdfBuffer, {
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="orden-${order.numero}.pdf"`,
+            'Cache-Control': 'public, max-age=300'
+          }
+        })
+      } catch (pdfError) {
+        console.error('Error generando PDF:', pdfError)
+        return NextResponse.json(
+          { error: 'Error al generar el PDF' },
+          { status: 500 }
+        )
+      }
     }
 
-    // Si no se solicita PDF, devolver los datos en JSON
+    // Retornar datos JSON si no se solicita PDF
     const orderData = {
       numero: order.numero,
-      fecha: order.creadoEl ? new Date(order.creadoEl).toLocaleString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }) : '',
+      fecha: order.creadoEl ? new Date(order.creadoEl).toLocaleString('es-ES') : '',
       cliente: {
         nombre: `${order.cliente?.nombre || ''} ${order.cliente?.apellido || ''}`.trim(),
         email: order.cliente?.email || '',
