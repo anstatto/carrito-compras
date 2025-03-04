@@ -6,12 +6,19 @@ import { motion } from 'framer-motion'
 import { ImageSelector } from './ImageSelector'
 import { toast } from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
-import type { CategoryFormData } from '@/interfaces/Category'
+import type { Categoria } from '@prisma/client'
+import slugify from 'slugify'
 
 interface CategoryFormProps {
-  formData: CategoryFormData
-  setFormData: (data: CategoryFormData) => void
-  isEditing: boolean
+  category?: Categoria
+}
+
+const initialFormData = {
+  nombre: '',
+  descripcion: '',
+  imagen: '',
+  slug: '',
+  activa: true,
 }
 
 // Memoizar el botón de submit para evitar re-renders innecesarios
@@ -25,7 +32,8 @@ const SubmitButton = memo(({ isSubmitting, isEditing }: {
     whileTap={{ scale: 0.98 }}
     disabled={isSubmitting}
     className="px-8 py-2.5 text-white bg-gradient-to-r from-pink-500 to-violet-500 
-               rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+               rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow-lg
+               hover:shadow-pink-500/20 hover:shadow-2xl transition-all duration-300"
   >
     {isSubmitting ? (
       <motion.div 
@@ -34,52 +42,76 @@ const SubmitButton = memo(({ isSubmitting, isEditing }: {
         className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto"
       />
     ) : (
-      isEditing ? 'Actualizar' : 'Crear'
+      isEditing ? 'Actualizar Categoría' : 'Crear Categoría'
     )}
   </motion.button>
 ))
 SubmitButton.displayName = 'SubmitButton'
 
 // Optimizar el formulario principal
-export const CategoryForm = memo(function CategoryForm({ 
-  formData, 
-  setFormData, 
-  isEditing 
-}: CategoryFormProps) {
+export const CategoryForm = memo(function CategoryForm({ category }: CategoryFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formData, setFormData] = useState(
+    category
+      ? {
+          nombre: category.nombre,
+          descripcion: category.descripcion || '',
+          imagen: category.imagen || '',
+          slug: category.slug,
+          activa: category.activa,
+        }
+      : initialFormData
+  )
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      const url = isEditing 
-        ? `/api/categories/${formData.id}`
+      // Generar slug si no existe
+      if (!formData.slug) {
+        formData.slug = slugify(formData.nombre, { lower: true })
+      }
+
+      const url = category
+        ? `/api/categories/${category.id}`
         : '/api/categories'
 
       const res = await fetch(url, {
-        method: isEditing ? 'PUT' : 'POST',
+        method: category ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       })
 
-      if (!res.ok) throw new Error('Error al guardar categoría')
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.message || 'Error al guardar categoría')
+      }
       
-      toast.success(isEditing ? 'Categoría actualizada' : 'Categoría creada')
+      toast.success(category ? 'Categoría actualizada' : 'Categoría creada')
       router.push('/admin/categories')
       router.refresh()
     } catch (error) {
       console.error('Error:', error)
-      toast.error('Error al guardar la categoría')
+      toast.error(error instanceof Error ? error.message : 'Error al guardar la categoría')
     } finally {
       setIsSubmitting(false)
     }
-  }, [formData, isEditing, router])
+  }, [formData, category, router])
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nombre = e.target.value
+    setFormData({ 
+      ...formData, 
+      nombre,
+      slug: slugify(nombre, { lower: true })
+    })
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl mx-auto bg-white/80 backdrop-blur-lg p-8 rounded-xl shadow-xl">
-      <div className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl mx-auto">
+      <div className="bg-white/80 backdrop-blur-lg p-8 rounded-2xl shadow-xl space-y-6 border border-gray-100">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -92,12 +124,34 @@ export const CategoryForm = memo(function CategoryForm({
           <input
             type="text"
             value={formData.nombre}
-            onChange={e => setFormData({ ...formData, nombre: e.target.value })}
-            className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 
+            onChange={handleNameChange}
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 
                      focus:ring-4 focus:ring-pink-500/20 focus:border-pink-500 
-                     transition-all duration-200 bg-white shadow-inner
+                     transition-all duration-200 bg-white/50 shadow-inner
                      placeholder:text-gray-400 text-gray-700"
             placeholder="Ingresa el nombre de la categoría"
+            required
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="group"
+        >
+          <label className="block text-sm font-semibold text-gray-800 mb-2 group-focus-within:text-pink-600 transition-colors">
+            Slug
+          </label>
+          <input
+            type="text"
+            value={formData.slug}
+            onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 
+                     focus:ring-4 focus:ring-pink-500/20 focus:border-pink-500 
+                     transition-all duration-200 bg-white/50 shadow-inner
+                     placeholder:text-gray-400 text-gray-700"
+            placeholder="URL amigable (se genera automáticamente)"
             required
           />
         </motion.div>
@@ -115,9 +169,9 @@ export const CategoryForm = memo(function CategoryForm({
             value={formData.descripcion}
             onChange={e => setFormData({ ...formData, descripcion: e.target.value })}
             rows={4}
-            className="w-full px-4 py-3 rounded-lg border-2 border-gray-200
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200
                      focus:ring-4 focus:ring-pink-500/20 focus:border-pink-500
-                     transition-all duration-200 bg-white shadow-inner
+                     transition-all duration-200 bg-white/50 shadow-inner
                      placeholder:text-gray-400 text-gray-700 resize-none"
             placeholder="Describe los detalles de la categoría..."
           />
@@ -132,7 +186,7 @@ export const CategoryForm = memo(function CategoryForm({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="flex items-center space-x-3 bg-gray-50 p-4 rounded-lg"
+          className="flex items-center space-x-3 bg-gray-50/80 p-4 rounded-xl"
         >
           <div className="relative inline-block">
             <input
@@ -156,17 +210,17 @@ export const CategoryForm = memo(function CategoryForm({
         </motion.div>
       </div>
 
-      <div className="flex justify-end gap-4 pt-4 border-t border-gray-100">
+      <div className="flex justify-end gap-4 pt-4">
         <Link
           href="/admin/categories"
           className="px-6 py-2.5 text-gray-700 bg-white border-2 border-gray-200 
-                   rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all duration-200
+                   rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200
                    shadow-sm hover:shadow focus:outline-none focus:ring-4 
                    focus:ring-gray-200 font-medium"
         >
           Cancelar
         </Link>
-        <SubmitButton isSubmitting={isSubmitting} isEditing={isEditing} />
+        <SubmitButton isSubmitting={isSubmitting} isEditing={!!category} />
       </div>
     </form>
   )
