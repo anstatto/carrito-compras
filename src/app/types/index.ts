@@ -5,6 +5,8 @@ export interface Product {
   cantidad: number;
   existencias: number;
   imagenes: { url: string }[];
+  enOferta?: boolean;
+  precioOferta?: number;
 }
 
 export interface Client {

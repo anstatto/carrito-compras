@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { readdirSync, statSync } from 'fs'
-import { join } from 'path'
+import cloudinary from '@/lib/cloudinary'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 interface ImageInfo {
   name: string
@@ -9,51 +10,39 @@ interface ImageInfo {
   size: number
   createdAt: Date
   type: string
-}
-
-const ALLOWED_DIRS = ['productos', 'categorias'] as const
-
-const getImageType = (filename: string): string => {
-  const ext = filename.split('.').pop()?.toLowerCase() || ''
-  return ext === 'jpg' ? 'jpeg' : ext
+  public_id: string
 }
 
 export async function GET() {
   try {
-    const publicDir = join(process.cwd(), 'public')
-    const images: ImageInfo[] = []
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
 
-    ALLOWED_DIRS.forEach(dir => {
-      const dirPath = join(publicDir, dir)
-      try {
-        const files = readdirSync(dirPath)
-        files.forEach(file => {
-          if (file.match(/\.(jpg|jpeg|png|gif)$/i)) {
-            const filePath = join(dirPath, file)
-            const stats = statSync(filePath)
-            images.push({
-              name: file,
-              url: `/${dir}/${file}`,
-              module: dir,
-              size: stats.size,
-              createdAt: stats.birthtime,
-              type: getImageType(file)
-            })
-          }
-        })
-      } catch (error) {
-        console.error(`Error leyendo directorio ${dir}:`, error)
-      }
-    })
+    // Obtener lista de imágenes de Cloudinary
+    const { resources } = await cloudinary.search
+      .expression('resource_type:image')
+      .sort_by('created_at', 'desc')
+      .max_results(100)
+      .execute()
 
-    // Ordenar por fecha de creación, más recientes primero
-    images.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    const images: ImageInfo[] = resources.map((resource: any) => ({
+      name: resource.filename,
+      url: resource.secure_url,
+      module: resource.folder || 'productos',
+      size: resource.bytes,
+      createdAt: new Date(resource.created_at),
+      type: resource.format,
+      public_id: resource.public_id
+    }))
 
     return NextResponse.json(images)
   } catch (error) {
-    console.error('Error al leer imágenes:', error)
+    console.error('Error al obtener imágenes:', error)
     return NextResponse.json(
-      { error: 'Error al leer imágenes' },
+      { error: 'Error al obtener imágenes' },
       { status: 500 }
     )
   }

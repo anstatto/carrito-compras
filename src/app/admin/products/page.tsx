@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { ProductFilters } from './_components/ProductFilters'
-import { FaEdit, FaEye, FaEyeSlash, FaPlus, FaSort, FaStar } from 'react-icons/fa'
+import { FaEdit, FaEye, FaEyeSlash, FaPlus, FaSort, FaStar, FaSpinner } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import type { Product } from '@/interfaces/Product'
@@ -11,64 +11,74 @@ import { useProducts } from '@/hooks/useProducts'
 import { toast } from 'react-hot-toast'
 import Pagination from '@/components/ui/Pagination'
 import { useRouter, usePathname } from 'next/navigation'
+import type { FilterParams } from '@/interfaces/FilterParams'
+
+// Animaciones para las tarjetas
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  exit: { opacity: 0, y: -20, transition: { duration: 0.2 } }
+}
 
 export default function ProductsPage() {
   const { products, isLoading, fetchProducts, updateProduct, setProducts } = useProducts()
-  const [currentPage ] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(12)
   const [categories, setCategories] = useState([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [sortField, setSortField] = useState<'nombre' | 'precio' | 'existencias'>('nombre')
+  const [searchTerm, setSearchTerm] = useState('')
 
   const router = useRouter()
   const pathname = usePathname()
 
-  const sortProducts = (products: Product[]) => {
-    const numericSort = (a: number, b: number) => sortOrder === 'asc' ? a - b : b - a
-    const stringSort = (a: string, b: string) => {
-      return sortOrder === 'asc' 
-        ? a.localeCompare(b, 'es', { sensitivity: 'base' })
-        : b.localeCompare(a, 'es', { sensitivity: 'base' })
+  // Memoizar el ordenamiento y filtrado de productos
+  const filteredAndSortedProducts = useMemo(() => {
+    let filtered = [...products]
+
+    // Aplicar búsqueda
+    if (searchTerm) {
+      filtered = filtered.filter(product => 
+        (product.nombre && product.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (product.descripcion && product.descripcion.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
     }
 
-    return [...products].sort((a, b) => {
-      switch (sortField) {
-        case 'precio':
-          return numericSort(Number(a.precio), Number(b.precio))
-        case 'existencias':
-          return numericSort(a.existencias, b.existencias)
-        default:
-          return stringSort(a.nombre, b.nombre)
+    // Ordenar productos
+    return filtered.sort((a, b) => {
+      const aValue = sortField === 'precio' ? Number(a[sortField]) : a[sortField]
+      const bValue = sortField === 'precio' ? Number(b[sortField]) : b[sortField]
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === 'asc' 
+          ? aValue.localeCompare(bValue, 'es', { sensitivity: 'base' })
+          : bValue.localeCompare(aValue, 'es', { sensitivity: 'base' })
       }
+
+      return sortOrder === 'asc' ? (aValue as number) - (bValue as number) : (bValue as number) - (aValue as number)
     })
+  }, [products, sortField, sortOrder, searchTerm])
+
+  // Paginación
+  const currentProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filteredAndSortedProducts.slice(startIndex, startIndex + itemsPerPage)
+  }, [filteredAndSortedProducts, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filteredAndSortedProducts.length / itemsPerPage)
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  
-  // Calcular índices para paginación
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-
-  // Aplicar ordenamiento antes de la paginación
-  const sortedProducts = sortProducts(products)
-  const currentProducts = sortedProducts.slice(indexOfFirstItem, indexOfLastItem)
-
-  const totalPages = Math.ceil(products.length / itemsPerPage)
-
-  // Función para cambiar de página
-  // const handlePageChange = (pageNumber: number) => {
-  //   setCurrentPage(pageNumber)
-  //   window.scrollTo({ top: 0, behavior: 'smooth' })
-  // }
 
   const toggleProductStatus = async (productId: string, currentStatus: boolean) => {
     try {
-      const response = await updateProduct(productId, { 
-        activo: !currentStatus 
-      })
-      
+      const response = await updateProduct(productId, { activo: !currentStatus })
       if (!response) throw new Error('Error al actualizar estado')
       
-      // Forzar actualización inmediata
-      setProducts((prevProducts: Product[]) => 
+      setProducts(prevProducts => 
         prevProducts.map(product => 
           product.id === productId 
             ? { ...product, activo: !currentStatus }
@@ -95,6 +105,7 @@ export default function ProductsPage() {
       if (!response) throw new Error('Error al actualizar oferta')
       
       toast.success(`Oferta ${!product.enOferta ? 'activada' : 'desactivada'} correctamente`)
+      fetchProducts() // Recargar productos para obtener el nuevo precio de oferta
     } catch (error) {
       console.error('Error:', error)
       toast.error('Error al actualizar la oferta del producto')
@@ -109,6 +120,14 @@ export default function ProductsPage() {
 
       if (!response) throw new Error('Error al actualizar destacado')
       
+      setProducts(prevProducts => 
+        prevProducts.map(p => 
+          p.id === productId 
+            ? { ...p, destacado: !p.destacado }
+            : p
+        )
+      )
+      
       toast.success(`Producto ${!product.destacado ? 'destacado' : 'quitado de destacados'} correctamente`)
     } catch (error) {
       console.error('Error:', error)
@@ -121,10 +140,7 @@ export default function ProductsPage() {
   }
 
   useEffect(() => {
-    const handleFocus = () => {
-      fetchProducts()
-    }
-
+    const handleFocus = () => fetchProducts()
     window.addEventListener('focus', handleFocus)
     
     fetchProducts()
@@ -143,9 +159,7 @@ export default function ProductsPage() {
     
     loadCategories()
 
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-    }
+    return () => window.removeEventListener('focus', handleFocus)
   }, [fetchProducts])
 
   useEffect(() => {
@@ -161,26 +175,46 @@ export default function ProductsPage() {
     }
   }
 
+  // Reset página cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm])
+
+  // Manejar cambios en los filtros
+  const handleFilter = useCallback((filters: FilterParams) => {
+    setCurrentPage(1) // Reset página al filtrar
+    fetchProducts(filters)
+  }, [fetchProducts])
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Productos</h1>
-        <Link
-          href="/admin/products/new"
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-violet-500 
-                   text-white rounded-lg hover:shadow-lg transition-all duration-200"
-        >
-          <FaPlus /> Nuevo Producto
-        </Link>
+        <div className="flex gap-4 items-center">
+          <input
+            type="text"
+            placeholder="Buscar productos..."
+            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Link
+            href="/admin/products/new"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-violet-500 
+                     text-white rounded-lg hover:shadow-lg transition-all duration-200"
+          >
+            <FaPlus /> Nuevo Producto
+          </Link>
+        </div>
       </div>
 
       <ProductFilters 
         categories={categories}
-        onFilter={fetchProducts}
+        onFilter={handleFilter}
       />
 
       {/* Controles de ordenamiento */}
-      <div className="flex gap-4 mb-6 bg-white p-4 rounded-lg shadow">
+      <div className="flex flex-wrap gap-4 mb-6 bg-white p-4 rounded-lg shadow">
         <button
           onClick={() => handleSort('nombre')}
           className={`flex items-center gap-2 px-3 py-2 rounded transition-colors
@@ -215,10 +249,10 @@ export default function ProductsPage() {
               {currentProducts.map(product => (
                 <motion.div
                   key={product.id}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
                   whileHover={{ y: -5 }}
                   onDoubleClick={() => handleDoubleClick(product.id)}
                   className={`bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-200 
@@ -246,12 +280,12 @@ export default function ProductsPage() {
                     )}
                   </div>
 
-                  <div className="relative aspect-video">
+                  <div className="relative h-[250px] bg-white p-4">
                     <OptimizedImage
                       src={product.imagenes[0]?.url || '/placeholder-product.jpg'}
-                      alt={product.nombre}
+                      alt={product.nombre || 'Imagen del producto'}
                       fill
-                      className="object-cover"
+                      className="object-cover hover:scale-105 transition-transform duration-300"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       priority={true}
                     />
@@ -278,7 +312,11 @@ export default function ProductsPage() {
                             e.stopPropagation()
                             toggleOfferStatus(product.id, product)
                           }}
-                          className="p-2 text-gray-500 hover:text-pink-500 transition-colors"
+                          className={`p-2 transition-colors ${
+                            product.enOferta 
+                              ? 'text-pink-500 hover:text-pink-600' 
+                              : 'text-gray-500 hover:text-pink-500'
+                          }`}
                           title={product.enOferta ? 'Quitar oferta' : 'Poner en oferta'}
                         >
                           {product.enOferta ? '💰' : '🏷️'}
@@ -317,19 +355,19 @@ export default function ProductsPage() {
                           <>
                             <div className="flex items-center gap-2">
                               <p className="text-lg font-bold text-pink-500">
-                                ${Number(product.precioOferta).toFixed(2)}
+                                RD${Number(product.precioOferta).toLocaleString('es-DO')}
                               </p>
                               <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
                                 Oferta
                               </span>
                             </div>
                             <p className="text-sm text-gray-500 line-through">
-                              ${Number(product.precio).toFixed(2)}
+                              RD${Number(product.precio).toLocaleString('es-DO')}
                             </p>
                           </>
                         ) : (
                           <p className="text-lg font-bold text-gray-900">
-                            ${Number(product.precio).toFixed(2)}
+                            RD${Number(product.precio).toLocaleString('es-DO')}
                           </p>
                         )}
                       </div>
@@ -366,18 +404,24 @@ export default function ProductsPage() {
           </AnimatePresence>
 
           {/* Paginación */}
-          {products.length > 0 && (
+          {filteredAndSortedProducts.length > 0 && (
             <div className="mt-8">
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
+                onPageChange={handlePageChange}
               />
             </div>
           )}
 
-          {products.length === 0 && !isLoading && (
+          {filteredAndSortedProducts.length === 0 && !isLoading && (
             <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No se encontraron productos</p>
+              <p className="text-gray-500 text-lg">
+                {searchTerm 
+                  ? 'No se encontraron productos que coincidan con la búsqueda'
+                  : 'No se encontraron productos'
+                }
+              </p>
             </div>
           )}
         </>

@@ -142,6 +142,10 @@ model ItemPedido {
   cantidad    Int
   precioUnit  Decimal
   subtotal    Decimal
+  enOferta    Boolean  @default(false) @map("en_oferta")
+  precioRegular Decimal? @db.Decimal(10,2) @map("precio_regular")
+  precioOferta  Decimal? @db.Decimal(10,2) @map("precio_oferta")
+  porcentajeDescuento Int? @map("porcentaje_descuento")
   creadoEl    DateTime @default(now()) @map("creado_el")
 
   @@map("items_pedido")

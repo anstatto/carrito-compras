@@ -7,8 +7,7 @@ import { FaPlus, FaTimes, FaImages } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 
-// Cargar GalleryPage de forma dinámica
-const GalleryPage = dynamic(() => import("../../_components/galeria/Gallery"), {
+const Gallery = dynamic(() => import("../../_components/galeria/Gallery"), {
   loading: () => <div>Cargando galería...</div>,
   ssr: false,
 });
@@ -30,7 +29,6 @@ export const ImageSelector = memo(function ImageSelector({
       const file = e.target.files?.[0];
       if (!file) return;
 
-      // Validar tamaño y tipo de archivo
       if (file.size > 5 * 1024 * 1024) {
         toast.error("La imagen no debe superar 5MB");
         return;
@@ -44,9 +42,8 @@ export const ImageSelector = memo(function ImageSelector({
       setIsUploading(true);
       try {
         const formData = new FormData();
-        formData.append("image", file);
+        formData.append("files", file);
         formData.append("module", "categorias");
-        formData.append("name", `${file.name}_${Date.now()}`);
 
         const res = await fetch("/api/upload", {
           method: "POST",
@@ -56,7 +53,7 @@ export const ImageSelector = memo(function ImageSelector({
         if (!res.ok) throw new Error("Error al subir imagen");
 
         const data = await res.json();
-        onImageSelect(data.url);
+        onImageSelect(data[0].url);
         toast.success("Imagen subida correctamente");
       } catch (error) {
         console.error("Error:", error);
@@ -163,12 +160,14 @@ export const ImageSelector = memo(function ImageSelector({
               </div>
 
               <div className="flex-1 overflow-y-auto p-4">
-                <GalleryPage
-                  onImageSelect={(url) => {
+                <Gallery
+                  selectionMode="url-only"
+                  onImageSelect={(image) => {
+                    const url = typeof image === 'string' ? image : image.url;
                     onImageSelect(url);
                     setShowGallery(false);
                   }}
-                  selectionMode={true}
+                  allowedModules={["categorias"]}
                 />
               </div>
             </motion.div>

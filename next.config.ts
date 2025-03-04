@@ -2,11 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    domains: ['arlinglowcare.shop'],
+    domains: ['res.cloudinary.com'],
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '*',
+        hostname: 'res.cloudinary.com',
+        pathname: '/dwga2dsbz/**',
       },
     ],
   },

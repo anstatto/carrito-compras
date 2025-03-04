@@ -10,40 +10,40 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaCheck,
+  FaUpload,
+  FaSpinner,
 } from "react-icons/fa";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 
-interface ImageFile {
+interface ImageInfo {
   name: string;
   url: string;
   module: string;
   size: number;
-  createdAt: string;
+  createdAt: Date;
   type: string;
+  public_id?: string;
 }
-
-
 
 const ITEMS_PER_PAGE = 20;
 
-interface GalleryPageProps {
-  onImageSelect?: (imageUrl: string) => void;
-  selectionMode: boolean;
+interface GalleryProps {
+  selectionMode?: 'url-only' | 'full' | false;
+  onImageSelect?: (image: ImageInfo | string) => void;
+  allowedModules?: string[];
 }
 
-export default function GalleryPage({
-  onImageSelect,
-  selectionMode = false,
-}: GalleryPageProps) {
+export default function Gallery({ selectionMode = false, onImageSelect, allowedModules }: GalleryProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [images, setImages] = useState<ImageFile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [editingImage, setEditingImage] = useState<ImageFile | null>(null);
-  const [newName, setNewName] = useState("");
+  const [images, setImages] = useState<ImageInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("");
+  const [moduleFilter, setModuleFilter] = useState<string>("all");
+  const [uploading, setUploading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<ImageInfo | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -65,289 +65,243 @@ export default function GalleryPage({
       console.error("Error:", error);
       toast.error("Error al cargar imágenes");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const filteredImages = images.filter(
-    (image) =>
-      image.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      image.module.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
 
-  const totalPages = Math.ceil(filteredImages.length / ITEMS_PER_PAGE);
-  const paginatedImages = filteredImages.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+    setUploading(true);
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append("files", file);
+    });
+    formData.append("module", moduleFilter === "all" ? "productos" : moduleFilter);
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Error al subir imágenes");
+      }
+      
+      const uploadedFiles = await res.json();
+      setImages(prev => [...uploadedFiles, ...prev]);
+      toast.success("Imágenes subidas correctamente");
+    } catch (error: any) {
+      toast.error(error.message || "Error al subir las imágenes");
+      console.error(error);
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleDelete = async (imageName: string) => {
+  const handleDelete = async (image: ImageInfo) => {
     if (!confirm("¿Estás seguro de eliminar esta imagen?")) return;
 
     try {
-      const res = await fetch(`/api/gallery/${encodeURIComponent(imageName)}`, {
+      const res = await fetch(`/api/gallery/${encodeURIComponent(image.public_id || '')}`, {
         method: "DELETE",
       });
 
-      if (!res.ok) throw new Error("Error al eliminar imagen");
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Error al eliminar imagen");
+      }
+      
       toast.success("Imagen eliminada correctamente");
-      fetchImages();
-    } catch (error) {
-      console.error("Error:", error);
-      toast.error("Error al eliminar la imagen");
+      setImages(images.filter(img => img.public_id !== image.public_id));
+    } catch (error: any) {
+      toast.error(error.message || "Error al eliminar la imagen");
+      console.error(error);
     }
   };
 
-  const handleRename = async (oldName: string) => {
-    if (!newName.trim()) {
-      toast.error("El nombre no puede estar vacío");
-      return;
-    }
+  const filteredImages = images.filter((image) => {
+    const matchesFilter = image.name.toLowerCase().includes(filter.toLowerCase());
+    const matchesModule = moduleFilter === "all" || image.module === moduleFilter;
+    return matchesFilter && matchesModule;
+  });
 
-    try {
-      const res = await fetch(`/api/gallery/${encodeURIComponent(oldName)}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ newName }),
-      });
-
-      if (!res.ok) throw new Error("Error al renombrar imagen");
-
-      toast.success("Imagen renombrada correctamente");
-      setEditingImage(null);
-      setNewName("");
-      fetchImages();
-    } catch (error) {
-      console.error("Error:", error);
-      toast.error("Error al renombrar la imagen");
-    }
-  };
-
-  const handleImageClick = (image: ImageFile) => {
-    if (selectionMode && onImageSelect) {
-      onImageSelect(image.url);
-      return;
-    }
-
-    // Si no estamos en modo selección, mostramos las opciones de edición
-    setEditingImage(image);
-    setNewName(image.name);
-  };
-
-  const Pagination = () => (
-    <div className="flex justify-center items-center gap-2 mt-8">
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => handlePageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className={`p-2 rounded-full ${
-          currentPage === 1
-            ? "bg-gray-100 text-gray-400"
-            : "bg-pink-100 text-pink-600 hover:bg-pink-200"
-        }`}
-      >
-        <FaChevronLeft />
-      </motion.button>
-
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-        <motion.button
-          key={page}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => handlePageChange(page)}
-          className={`w-8 h-8 rounded-full ${
-            currentPage === page
-              ? "bg-pink-500 text-white"
-              : "bg-pink-100 text-pink-600 hover:bg-pink-200"
-          }`}
-        >
-          {page}
-        </motion.button>
-      ))}
-
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => handlePageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className={`p-2 rounded-full ${
-          currentPage === totalPages
-            ? "bg-gray-100 text-gray-400"
-            : "bg-pink-100 text-pink-600 hover:bg-pink-200"
-        }`}
-      >
-        <FaChevronRight />
-      </motion.button>
-    </div>
-  );
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="h-16 w-16 border-4 border-pink-500 border-t-transparent rounded-full"
-        />
-      </div>
-    );
-  }
+  const modules = ["all", ...new Set(images.map(img => img.module))];
+  
+  // Paginación
+  const totalPages = Math.ceil(filteredImages.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedImages = filteredImages.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Galería de Imágenes
-        </h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex gap-4 items-center">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar imágenes..."
+              className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          </div>
+
+          <select
+            value={moduleFilter}
+            onChange={(e) => setModuleFilter(e.target.value)}
+            className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-pink-500"
+          >
+            {modules.map((module) => (
+              <option key={module} value={module}>
+                {module.charAt(0).toUpperCase() + module.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div className="relative">
           <input
-            type="text"
-            placeholder="Buscar imágenes..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1); // Reset to first page on search
-            }}
-            className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            type="file"
+            multiple
+            accept="image/*"
+            className="hidden"
+            id="image-upload"
+            onChange={handleUpload}
+            disabled={uploading}
           />
-          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <label
+            htmlFor="image-upload"
+            className={`flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 cursor-pointer ${
+              uploading ? "opacity-75 cursor-not-allowed" : ""
+            }`}
+          >
+            {uploading ? <FaSpinner className="animate-spin" /> : <FaUpload />}
+            {uploading ? "Subiendo..." : "Subir imágenes"}
+          </label>
         </div>
       </div>
 
-      {paginatedImages.length > 0 ? (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {paginatedImages.map((image) => (
-              <motion.div
-                key={image.url}
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="relative group cursor-pointer"
-                onClick={() => handleImageClick(image)}
-              >
-                <div className="aspect-square relative rounded-lg overflow-hidden">
-                  <Image
-                    src={image.url}
-                    alt={image.name}
-                    fill
-                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200">
-                    {selectionMode ? (
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                        <motion.div
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          className="w-10 h-10 bg-pink-500 rounded-full flex items-center justify-center"
-                        >
-                          <FaCheck className="text-white" />
-                        </motion.div>
-                      </div>
-                    ) : (
-                      <div className="absolute bottom-0 left-0 right-0 p-4 transform translate-y-full group-hover:translate-y-0 transition-transform duration-200">
-                        <div className="flex justify-end gap-2">
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingImage(image);
-                              setNewName(image.name);
-                            }}
-                            className="p-2 bg-blue-500 text-white rounded-full"
-                          >
-                            <FaEdit />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(image.name);
-                            }}
-                            className="p-2 bg-red-500 text-white rounded-full"
-                          >
-                            <FaTrash />
-                          </motion.button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="mt-2">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {image.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{image.module}</p>
-                  {!selectionMode && (
-                    <p className="text-xs text-gray-400">
-                      {(image.size / 1024 / 1024).toFixed(2)} MB •{" "}
-                      {image.type.toUpperCase()}
-                    </p>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-          <Pagination />
-        </>
-      ) : (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No se encontraron imágenes</p>
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <FaSpinner className="animate-spin text-4xl text-pink-600" />
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <AnimatePresence>
+              {paginatedImages.map((image) => (
+                <motion.div
+                  key={image.name}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="relative group"
+                >
+                  <div className="aspect-square relative overflow-hidden rounded-lg border border-gray-200 hover:border-pink-500 transition-colors">
+                    <Image
+                      src={image.url}
+                      alt={image.name}
+                      fill
+                      className={`object-cover cursor-pointer ${selectionMode ? 'hover:opacity-75' : ''}`}
+                      onClick={() => {
+                        if (selectionMode && onImageSelect) {
+                          if (selectionMode === 'url-only') {
+                            onImageSelect(image.url);
+                          } else {
+                            onImageSelect(image);
+                          }
+                          toast.success('Imagen seleccionada');
+                          return;
+                        }
+                        setSelectedImage(image);
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      {selectionMode ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onImageSelect) {
+                              onImageSelect(image);
+                              toast.success('Imagen seleccionada');
+                            }
+                          }}
+                          className="p-2 bg-pink-600 text-white rounded-full hover:bg-pink-700"
+                        >
+                          <FaCheck />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(image);
+                          }}
+                          className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700"
+                        >
+                          <FaTrash />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm text-gray-600">
+                    <p className="truncate">{image.name}</p>
+                    <p className="text-xs text-gray-400">
+                      {(image.size / 1024).toFixed(1)}KB · {image.module}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-4 mt-6">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50"
+              >
+                <FaChevronLeft />
+              </button>
+              <span className="text-sm text-gray-600">
+                Página {currentPage} de {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50"
+              >
+                <FaChevronRight />
+              </button>
+            </div>
+          )}
+        </>
       )}
 
-      <AnimatePresence>
-        {editingImage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-lg p-6 max-w-md w-full"
-            >
-              <h3 className="text-lg font-semibold mb-4">Renombrar Imagen</h3>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg mb-4"
-              />
-              <div className="flex justify-end gap-4">
-                <button
-                  onClick={() => setEditingImage(null)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => handleRename(editingImage.name)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  Guardar
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Modal de vista previa */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <Image
+              src={selectedImage.url}
+              alt={selectedImage.name}
+              width={800}
+              height={800}
+              className="object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import {  Decimal } from "@prisma/client/runtime/library"
 import { ProvinciaRD, AgenciaEnvio, EstadoPago, TipoPago, EstadoPedido } from "@prisma/client"
 
 interface Direccion {
@@ -18,7 +17,7 @@ interface Direccion {
   sucursalAgencia?: string
 }
 
-interface Cliente {
+export interface Cliente {
   id: string
   nombre: string
   apellido: string
@@ -38,13 +37,18 @@ export interface OrderItem {
   id: string
   cantidad: number
   precioUnit: number
+  subtotal: number
+  enOferta: boolean
+  precioRegular: number | null
+  precioOferta: number | null
+  porcentajeDescuento: number | null
   producto: {
     id: string
     nombre: string
     sku: string
     precio: number
-    imagenes: Array<{ url: string }>
     marca: string
+    imagenes?: Array<{ url: string }>
   }
 }
 
@@ -76,21 +80,7 @@ export interface Order {
     agenciaEnvio: AgenciaEnvio | null
     sucursalAgencia: string | null
   }
-  items?: Array<{
-    id: string
-    cantidad: number
-    precioUnit: number
-    subtotal: number
-    creadoEl: Date
-    producto: {
-      id: string
-      nombre: string
-      sku: string
-      precio: Decimal
-      marca: string
-      imagenes?: Array<{ url: string }>
-    }
-  }>
+  items?: Array<OrderItem>
   creadoEl: string | Date | null
   actualizadoEl: string | Date | null
 } 

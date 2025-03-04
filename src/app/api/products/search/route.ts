@@ -33,6 +33,8 @@ export async function GET(request: Request) {
         nombre: true,
         precio: true,
         existencias: true,
+        enOferta: true,
+        precioOferta: true,
         imagenes: {
           select: {
             url: true

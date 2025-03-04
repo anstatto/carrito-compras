@@ -24,7 +24,6 @@ import {
   FaSync,
   FaPhone
 } from 'react-icons/fa'
-import { Decimal } from '@prisma/client/runtime/library'
 import { EstadoPedido } from '@prisma/client'
 
 interface OrderDetailsProps {
@@ -62,7 +61,7 @@ const handlePrint = async (orderId: string) => {
       setTimeout(() => {
         document.body.removeChild(iframe)
         window.URL.revokeObjectURL(url)
-      }, 1000)
+      }, 20000)
     }
   } catch (error) {
     console.error('Error al imprimir:', error)
@@ -130,9 +129,9 @@ export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProp
     return order.metodoPago.tipo
   }
 
-  const formatMoney = (amount: number | Decimal | undefined) => {
-    if (typeof amount === 'undefined') return '$0.00'
-    return `$${Number(amount).toFixed(2)}`
+  const formatMoney = (amount: number | null | undefined) => {
+    if (amount === null || typeof amount === 'undefined') return 'RD$0.00'
+    return `RD$${amount.toFixed(2)}`
   }
 
   const getOrderItems = () => {
@@ -265,7 +264,7 @@ export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProp
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cantidad</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio Unit.</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subtotal</th>
                 </tr>
               </thead>
@@ -283,23 +282,84 @@ export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProp
                             className="rounded-full mr-3 object-cover"
                           />
                         )}
-                        <div className="text-sm font-medium text-gray-900">
-                          {item.producto?.nombre || 'Producto no disponible'}
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {item.producto?.nombre || 'Producto no disponible'}
+                          </div>
+                          {item.enOferta && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-800">
+                              Comprado con oferta
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.cantidad || 0}
+                      {item.cantidad}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {item.enOferta ? (
+                        <div className="flex flex-col text-sm">
+                          <span className="line-through text-gray-400">
+                            {formatMoney(item.precioRegular)}
+                          </span>
+                          <span className="text-pink-600 font-medium">
+                            {formatMoney(item.precioOferta)}
+                          </span>
+                          <span className="text-xs text-green-600">
+                            {item.porcentajeDescuento}% descuento
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500">
+                          {formatMoney(item.precioUnit)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatMoney(item.precioUnit)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatMoney(item.cantidad * Number(item.precioUnit))}
+                      {formatMoney(item.subtotal)}
                     </td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-gray-50">
+                <tr>
+                  <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                    Subtotal:
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {formatMoney(order.subtotal)}
+                  </td>
+                </tr>
+                {order.impuestos > 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                      Impuestos:
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatMoney(order.impuestos)}
+                    </td>
+                  </tr>
+                )}
+                {order.costoEnvio > 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                      Envío:
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatMoney(order.costoEnvio)}
+                    </td>
+                  </tr>
+                )}
+                <tr>
+                  <td colSpan={3} className="px-6 py-4 text-right text-sm font-bold text-gray-900">
+                    Total:
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                    {formatMoney(order.total)}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           )}
         </div>

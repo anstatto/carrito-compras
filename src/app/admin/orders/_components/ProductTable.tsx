@@ -143,7 +143,14 @@ export default function ProductTable({ products, onUpdate }: ProductTableProps) 
                   <div>
                     <p className="font-medium">{product.nombre}</p>
                     <div className="text-sm text-gray-500 flex gap-2">
-                      <span>RD${formatPrice(product.precio)}</span>
+                      {product.enOferta && product.precioOferta ? (
+                        <>
+                          <span className="line-through">RD${formatPrice(product.precio)}</span>
+                          <span className="text-pink-600 font-medium">RD${formatPrice(product.precioOferta)}</span>
+                        </>
+                      ) : (
+                        <span>RD${formatPrice(product.precio)}</span>
+                      )}
                       <span>•</span>
                       <span>Stock: {product.existencias}</span>
                     </div>
@@ -199,6 +206,11 @@ export default function ProductTable({ products, onUpdate }: ProductTableProps) 
                     <div className="text-sm font-medium text-gray-900">
                       {product.nombre}
                     </div>
+                    {product.enOferta && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-800">
+                        En Oferta
+                      </span>
+                    )}
                   </div>
                 </div>
               </td>
@@ -215,10 +227,29 @@ export default function ProductTable({ products, onUpdate }: ProductTableProps) 
                 />
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                RD${formatPrice(product.precio)}
+                {product.enOferta && product.precioOferta ? (
+                  <div className="flex flex-col">
+                    <span className="text-sm line-through text-gray-400">
+                      RD${formatPrice(product.precio)}
+                    </span>
+                    <span className="text-pink-600 font-medium">
+                      RD${formatPrice(product.precioOferta)}
+                    </span>
+                    <span className="text-xs text-green-600">
+                      {Math.round((1 - (getNumericPrice(product.precioOferta) / getNumericPrice(product.precio))) * 100)}% descuento
+                    </span>
+                  </div>
+                ) : (
+                  <span>RD${formatPrice(product.precio)}</span>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                RD${formatPrice(getNumericPrice(product.precio) * product.cantidad)}
+                RD${formatPrice(
+                  (product.enOferta && product.precioOferta 
+                    ? getNumericPrice(product.precioOferta) 
+                    : getNumericPrice(product.precio)
+                  ) * product.cantidad
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <button

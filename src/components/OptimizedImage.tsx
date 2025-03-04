@@ -11,38 +11,40 @@ interface OptimizedImageProps {
   sizes?: string
 }
 
+const CLOUDINARY_URL = 'https://res.cloudinary.com/dwga2dsbz/image/upload'
+
 export default function OptimizedImage({
   src,
   alt,
   width = 500,
   height = 500,
   className = '',
-  priority = false
+  priority = false,
+  fill = false,
+  sizes
 }: OptimizedImageProps) {
-  // Validar que src no sea undefined
-  if (!src) {
-    console.error('OptimizedImage: src prop is required')
-    return null
-  }
+  if (!src) return null
 
-  try {
-    // Asegurarse de que src comience con una barra si es una ruta relativa
-    const imageSrc = src.startsWith('http') || src.startsWith('/') 
-      ? src 
-      : `/${src}`
+  // Si ya es una URL completa de Cloudinary, la usamos tal cual
+  // Si es una ruta parcial, construimos la URL completa
+  const imageUrl = src.startsWith('http') 
+    ? src 
+    : src.startsWith('/v1') 
+      ? `${CLOUDINARY_URL}${src}`
+      : src.startsWith('/productos') 
+        ? `${CLOUDINARY_URL}/v1741054256${src}`
+        : src
 
-    return (
-      <Image
-        src={imageSrc}
-        alt={alt}
-        width={width}
-        height={height}
-        className={className}
-        priority={priority}
-      />
-    )
-  } catch (error) {
-    console.error('OptimizedImage: Error loading image:', error)
-    return null
-  }
+  return (
+    <Image
+      src={imageUrl}
+      alt={alt}
+      width={!fill ? width : undefined}
+      height={!fill ? height : undefined}
+      className={className}
+      priority={priority}
+      fill={fill}
+      sizes={sizes}
+    />
+  )
 } 

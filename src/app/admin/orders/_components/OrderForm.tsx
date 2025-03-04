@@ -66,11 +66,9 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
 
     try {
       const res = await fetch(`/api/users/${client.id}/address`);
-      if (!res.ok) throw new Error('Error al obtener la dirección');
-      
       const data = await res.json();
       
-      if (!data.hasDefaultAddress) {
+      if (!res.ok || !data.address) {
         toast('Este cliente necesita una dirección de envío', {
           icon: 'ℹ️',
           style: {
@@ -80,13 +78,21 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
         });
         setShowAddressModal(true);
         setAddress(null);
-      } else {
-        setAddress(data.address);
-        setShowAddressModal(false);
+        return;
       }
-    } catch (error) {
-      console.error('Error checking address:', error);
-      toast.error(error instanceof Error ? error.message : 'Error al verificar la dirección');
+      
+      setAddress(data.address);
+      setShowAddressModal(false);
+    } catch {
+      //console.error('Error checking address:', error);
+      toast('Este cliente necesita una dirección de envío', {
+        icon: 'ℹ️',
+        style: {
+          background: '#3B82F6',
+          color: '#fff'
+        }
+      });
+      setShowAddressModal(true);
       setAddress(null);
     }
   }, [client?.id]);
@@ -110,16 +116,16 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
       const res = await fetch(`/api/users/${client.id}/address`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...addressData, predeterminada: true })
+        body: JSON.stringify({ ...addressData, userId: client.id, predeterminada: true })
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Error al guardar la dirección');
+        throw new Error(data.error || 'Error al guardar la dirección');
       }
 
-      const data = await res.json();
-      setAddress(data);
+      setAddress(data.address);
       setShowAddressModal(false);
       toast.success('Dirección guardada correctamente');
     } catch (error) {
@@ -131,10 +137,16 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
   const calculateTotal = useCallback(() => {
     return products.reduce((sum, p) => {
       try {
-        const numericPrice = getNumericPrice(p.precio);
-        return sum + numericPrice * p.cantidad;
+        const precio = p.enOferta && p.precioOferta 
+          ? getNumericPrice(p.precioOferta) 
+          : getNumericPrice(p.precio);
+        
+        const subtotal = precio * p.cantidad;
+        //console.log(`Producto: ${p.nombre}, enOferta: ${p.enOferta}, precio: ${precio}, cantidad: ${p.cantidad}, subtotal: ${subtotal}`);
+        
+        return sum + subtotal;
       } catch (error) {
-        console.error(`Error calculating price for product ${p.id}:`, error);
+        console.error(`Error calculando precio para producto ${p.id}:`, error);
         return sum;
       }
     }, 0);
@@ -172,15 +184,19 @@ export default function OrderForm({ onSuccess }: OrderFormProps) {
     setIsSubmitting(true);
 
     try {
+      const orderItems = products.map(p => ({
+        productoId: p.id,
+        cantidad: p.cantidad,
+        precioUnit: p.enOferta && p.precioOferta 
+          ? getNumericPrice(p.precioOferta) 
+          : getNumericPrice(p.precio)
+      }));
+
       const orderData: OrderData = {
         clienteId: client!.id,
-        items: products.map(p => ({
-          productoId: p.id,
-          cantidad: p.cantidad,
-          precioUnit: getNumericPrice(p.precio)
-        })),
+        items: orderItems,
         metodoPago: paymentType,
-        total: total
+        total: calculateTotal()
       };
 
       const response = await fetch('/api/orders', {

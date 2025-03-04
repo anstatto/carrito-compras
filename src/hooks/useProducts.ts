@@ -1,24 +1,38 @@
 import { useState, useCallback } from 'react'
 import { Product } from '@/interfaces/Product'
 import { toast } from 'react-hot-toast'
+import type { FilterParams } from '@/interfaces/FilterParams'
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (filters?: FilterParams) => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/products?admin=true&t=${Date.now()}`, {
+      const params = new URLSearchParams({ admin: 'true', t: Date.now().toString() })
+      
+      // Agregar filtros a los parámetros
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== '') {
+            params.append(key, value.toString())
+          }
+        })
+      }
+
+      const response = await fetch(`/api/products?${params.toString()}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache'
         }
       })
+      
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Error al cargar productos')
       }
+      
       const data = await response.json()
       setProducts(data)
     } catch (error) {

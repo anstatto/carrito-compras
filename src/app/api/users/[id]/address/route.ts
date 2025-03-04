@@ -23,7 +23,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     })
 
     return NextResponse.json({
-      hasDefaultAddress: !!address,
       address: address || null
     })
   } catch (error) {
@@ -52,6 +51,24 @@ export async function POST(
 
     const body = await request.json()
 
+    if (!body) {
+      return NextResponse.json(
+        { error: "El cuerpo de la solicitud está vacío" },
+        { status: 400 }
+      )
+    }
+
+    // Validar campos requeridos
+    const requiredFields = ['calle', 'numero', 'sector', 'municipio', 'provincia', 'telefono']
+    const missingFields = requiredFields.filter(field => !body[field])
+
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        { error: `Campos requeridos faltantes: ${missingFields.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
     // Si es predeterminada, quitar predeterminada de otras direcciones
     if (body.predeterminada) {
       await prisma.direccion.updateMany({
@@ -68,11 +85,12 @@ export async function POST(
     const address = await prisma.direccion.create({
       data: {
         ...body,
-        userId: id
+        userId: id,
+        predeterminada: body.predeterminada ?? true // Si no se especifica, hacerla predeterminada
       }
     })
 
-    return NextResponse.json(address)
+    return NextResponse.json({ address })
   } catch (error) {
     console.error('Error al crear dirección:', error)
     return NextResponse.json(
