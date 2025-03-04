@@ -11,7 +11,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ imag
       where: { id: imagen[0] },
       include: {
         imagenes: true,
-        // ... otras relaciones
       },
     });
 

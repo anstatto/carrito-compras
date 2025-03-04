@@ -12,12 +12,7 @@ interface ProductTableProps {
   onUpdate: (products: Product[]) => void
 }
 
-const getImageUrl = (url: string) => {
-  if (!url) return '/placeholder.png';
-  if (url.startsWith('http')) return url;
-  if (url.startsWith('/productos/')) return url;
-  return `/productos/${url}`;
-};
+
 
 export default function ProductTable({ products, onUpdate }: ProductTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
@@ -130,7 +125,7 @@ export default function ProductTable({ products, onUpdate }: ProductTableProps) 
                   className="flex items-center gap-4 p-2 hover:bg-gray-50 cursor-pointer"
                 >
                   <Image
-                    src={getImageUrl(product.imagenes[0]?.url)}
+                    src={product.imagenes[0]?.url}
                     alt={product.nombre}
                     width={40}
                     height={40}
@@ -192,7 +187,7 @@ export default function ProductTable({ products, onUpdate }: ProductTableProps) 
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
                   <Image
-                    src={getImageUrl(product.imagenes[0]?.url)}
+                    src={product.imagenes[0]?.url}
                     alt={product.nombre}
                     width={40}
                     height={40}

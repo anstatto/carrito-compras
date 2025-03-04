@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { ProductFilters } from './_components/ProductFilters'
-import { FaEdit, FaEye, FaEyeSlash, FaPlus, FaSort, FaStar, FaSpinner } from 'react-icons/fa'
+import { FaEdit, FaEye, FaEyeSlash, FaPlus, FaSort, FaStar } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import type { Product } from '@/interfaces/Product'

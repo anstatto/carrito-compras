@@ -220,6 +220,7 @@ export default function ShowProductPage({ params }: Props) {
               <h3 className="text-sm font-medium text-gray-500 mb-3">Imágenes</h3>
               <div className="grid grid-cols-2 gap-4">
                 {product.imagenes.map((imagen, index) => (
+                  console.log("imagen:", imagen),
                   <div 
                     key={index} 
                     className="relative aspect-square rounded-xl overflow-hidden group"

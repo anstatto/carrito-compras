@@ -48,15 +48,21 @@ export async function GET(request: Request) {
       }
     });
 
-    // Procesar URLs de imágenes
-    const processedProducts = products.map(product => ({
+    console.log('Productos encontrados:', JSON.stringify(products, null, 2));
+
+    // Si las URLs no son completas, las corregimos
+    const productsWithFullUrls = products.map(product => ({
       ...product,
       imagenes: product.imagenes.map(img => ({
-        url: `/productos/${img.url.split("/").pop()}`
+        url: img.url.startsWith('http') 
+          ? img.url 
+          : `https://res.cloudinary.com/dwga2dsbz/image/upload/${img.url}`
       }))
     }));
 
-    return NextResponse.json(processedProducts);
+    console.log('Productos procesados:', JSON.stringify(productsWithFullUrls, null, 2));
+
+    return NextResponse.json(productsWithFullUrls);
   } catch (error) {
     console.error("Error en búsqueda de productos:", error);
     return NextResponse.json(

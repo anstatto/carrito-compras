@@ -3,9 +3,11 @@ import cloudinary from '@/lib/cloudinary';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+type Params = { public_id: string };
+
 export async function DELETE(
   request: Request,
-  context: { params: { public_id: string } }
+  { params }: { params: Promise<Params> }
 ) {
   try {
     // Verificar autenticación
@@ -14,8 +16,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const params = await Promise.resolve(context.params);
-    const { public_id } = params;
+    const { public_id } = await params;
     
     if (!public_id) {
       return NextResponse.json(

@@ -334,6 +334,7 @@ enum EstadoPago {
 
 enum TipoPago {
   TARJETA
+  OXXO
   EFECTIVO
   TRANSFERENCIA
   STRIPE

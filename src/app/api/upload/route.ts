@@ -1,7 +1,4 @@
 import { NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import path, { join } from 'path'
-import { existsSync } from 'fs'
 import cloudinary from '@/lib/cloudinary'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -22,7 +19,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se proporcionaron archivos' }, { status: 400 })
     }
 
-    const uploadPromises = files.map(async (file: any) => {
+    const uploadPromises = files.map(async (file: FormDataEntryValue) => {
+      if (!(file instanceof File)) {
+        throw new Error('Invalid file type')
+      }
       // Convertir el archivo a base64
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)
@@ -31,10 +31,10 @@ export async function POST(request: Request) {
       const dataURI = `data:${mimeType};base64,${base64}`
 
       const moduleValue = formData.get('module')
-      const module = typeof moduleValue === 'string' ? moduleValue : 'productos'
+      const uploadFolder = typeof moduleValue === 'string' ? moduleValue : 'productos'
 
       const options: UploadApiOptions = {
-        folder: module,
+        folder: uploadFolder,
         resource_type: 'auto'
       }
 
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       return {
         name: file.name,
         url: result.secure_url,
-        module,
+        module: uploadFolder,
         size: result.bytes,
         createdAt: new Date(),
         type: file.type,

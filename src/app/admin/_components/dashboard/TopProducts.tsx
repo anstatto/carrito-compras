@@ -62,6 +62,7 @@ export function TopProducts() {
                     alt={product.nombre}
                     fill
                     className="rounded-full object-cover"
+                    sizes="(max-width: 768px) 40px, 40px"
                   />
                 </div>
               )}

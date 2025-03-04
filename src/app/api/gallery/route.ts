@@ -28,14 +28,14 @@ export async function GET() {
       .max_results(100)
       .execute()
 
-    const images: ImageInfo[] = resources.map((resource: any) => ({
-      name: resource.filename,
-      url: resource.secure_url,
-      module: resource.folder || 'productos',
-      size: resource.bytes,
-      createdAt: new Date(resource.created_at),
-      type: resource.format,
-      public_id: resource.public_id
+    const images: ImageInfo[] = resources.map((resource: unknown) => ({
+      name: (resource as { filename: string }).filename,
+      url: (resource as { secure_url: string }).secure_url,
+      module: (resource as { folder: string }).folder || 'productos',
+      size: (resource as { bytes: number }).bytes,
+      createdAt: new Date((resource as { created_at: string }).created_at),
+      type: (resource as { format: string }).format,
+      public_id: (resource as { public_id: string }).public_id
     }))
 
     return NextResponse.json(images)

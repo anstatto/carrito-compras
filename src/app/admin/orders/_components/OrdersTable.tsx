@@ -36,7 +36,8 @@ const iconos = {
   EFECTIVO: <FaMoneyBill className="text-green-500" />,
   TRANSFERENCIA: <FaUniversity className="text-blue-500" />,
   TARJETA: <FaCreditCard className="text-purple-500" />,
-  STRIPE: <FaCreditCard className="text-pink-500" />
+  STRIPE: <FaCreditCard className="text-pink-500" />,
+  OXXO: <FaMoneyBill className="text-orange-500" />
 }
 
 export default function OrdersTable({ orders, onUpdateStatus, onUpdatePaymentMethod }: OrdersTableProps) {

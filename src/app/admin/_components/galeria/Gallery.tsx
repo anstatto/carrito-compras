@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaTrash,
-  FaEdit,
   FaSearch,
   FaChevronLeft,
   FaChevronRight,
@@ -35,7 +34,7 @@ interface GalleryProps {
   allowedModules?: string[];
 }
 
-export default function Gallery({ selectionMode = false, onImageSelect, allowedModules }: GalleryProps) {
+export default function Gallery({ selectionMode = false, onImageSelect }: GalleryProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [images, setImages] = useState<ImageInfo[]>([]);
@@ -94,8 +93,8 @@ export default function Gallery({ selectionMode = false, onImageSelect, allowedM
       const uploadedFiles = await res.json();
       setImages(prev => [...uploadedFiles, ...prev]);
       toast.success("Imágenes subidas correctamente");
-    } catch (error: any) {
-      toast.error(error.message || "Error al subir las imágenes");
+    } catch (error: unknown) {
+      toast.error((error as Error).message || "Error al subir las imágenes");
       console.error(error);
     } finally {
       setUploading(false);
@@ -117,8 +116,8 @@ export default function Gallery({ selectionMode = false, onImageSelect, allowedM
       
       toast.success("Imagen eliminada correctamente");
       setImages(images.filter(img => img.public_id !== image.public_id));
-    } catch (error: any) {
-      toast.error(error.message || "Error al eliminar la imagen");
+    } catch (error: unknown) {
+      toast.error((error as Error).message || "Error al eliminar la imagen");
       console.error(error);
     }
   };

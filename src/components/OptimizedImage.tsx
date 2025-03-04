@@ -21,7 +21,9 @@ export default function OptimizedImage({
   fill = false,
   sizes
 }: OptimizedImageProps) {
-  if (!src) return null
+  if (!src) return 
+  
+  console.log("url  imagen:", src)
 
   return (
     <Image
