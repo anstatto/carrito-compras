@@ -6,15 +6,36 @@ import Loading from "./loading";
 import Link from "next/link";
 import { ProductView } from "@/interfaces/Product";
 import { Metadata } from "next";
+import slugify from "slugify";
 
 type Params = Promise<{ id: string }>;
+
+// Función para normalizar el slug
+function normalizeSlug(slug: string): string {
+  return slugify(decodeURIComponent(slug), {
+    lower: true,
+    remove: /[*+~.()'"!:@&]/g,
+    replacement: '-',
+    strict: true,
+  });
+}
 
 // Función para obtener el producto
 async function getProductById(id: string): Promise<ProductView | null> {
   try {
+    // Decodificar y normalizar el ID/slug
+    const decodedId = decodeURIComponent(id);
+    const normalizedSlug = normalizeSlug(decodedId);
+
+    // Buscar el producto usando diferentes variaciones del slug
     const producto = await prisma.producto.findFirst({
       where: {
-        OR: [{ id }, { slug: id }],
+        OR: [
+          { id: decodedId },
+          { id: normalizedSlug },
+          { slug: decodedId },
+          { slug: normalizedSlug },
+        ],
         activo: true,
       },
       include: {
@@ -38,7 +59,11 @@ async function getProductById(id: string): Promise<ProductView | null> {
       },
     });
 
-    if (!producto) return null;
+    if (!producto) {
+      console.log(`Producto no encontrado para id/slug: ${id}`);
+      console.log(`Slug normalizado: ${normalizedSlug}`);
+      return null;
+    }
 
     // Serializar el producto
     return {
@@ -56,7 +81,7 @@ async function getProductById(id: string): Promise<ProductView | null> {
         url: img.url,
         alt: img.alt || producto.nombre,
       })),
-      slug: producto.slug || "default-slug",
+      slug: producto.slug || normalizeSlug(producto.nombre),
       categoria: {
         id: producto.categoria.id,
         nombre: producto.categoria.nombre,
@@ -66,6 +91,10 @@ async function getProductById(id: string): Promise<ProductView | null> {
     };
   } catch (error) {
     console.error("Error al obtener producto:", error);
+    console.error("ID/slug proporcionado:", id);
+    if (error instanceof Error) {
+      console.error("Mensaje de error:", error.message);
+    }
     return null;
   }
 }
