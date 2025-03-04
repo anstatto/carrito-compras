@@ -4,6 +4,7 @@
 // ¿Buscas formas de acelerar tus consultas o escalar fácilmente con tus funciones serverless o edge?
 // Prueba Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+// This is a marker comment to force a new migration
 generator client {
   provider = "prisma-client-js"
 }
