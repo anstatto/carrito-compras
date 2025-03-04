@@ -1,4 +1,4 @@
-import CategoriesSection from "@/app/components/home/CategoriesSection";
+import CategoriesSection from "@/components/home/CategoriesSection";
 
 export default async function CategoriasPage() {
   return (

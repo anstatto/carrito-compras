@@ -118,12 +118,14 @@ export async function GET(request: Request) {
       skip: Number(searchParams.get("page") || 0) * 20,
     });
 
-    // Procesar URLs de imágenes
+    // Procesar URLs de imágenes si es necesario
     const processedProducts = productos.map((producto) => ({
       ...producto,
       imagenes: producto.imagenes.map((img) => ({
         ...img,
-        url: `/productos/${img.url.split("/").pop()}`,
+        url: img.url.startsWith('http') 
+          ? img.url 
+          : `https://res.cloudinary.com/dwga2dsbz/image/upload/${img.url}`
       })),
     }));
 

@@ -1,114 +1,119 @@
-'use client'
+"use client";
 
-import { useEffect, useState, useCallback } from 'react'
-import { toast } from 'react-hot-toast'
-import { FaPlus, FaSpinner } from 'react-icons/fa'
-import DireccionForm from '../../perfil/direcciones/_components/DireccionForm'
-import { ProvinciaRD, AgenciaEnvio } from '@prisma/client'
-import { useSession } from 'next-auth/react'
+import { useEffect, useState, useCallback } from "react";
+import { FaPlus, FaSpinner } from "react-icons/fa";
+import DireccionForm from "../../perfil/direcciones/_components/DireccionForm";
+import { ProvinciaRD, AgenciaEnvio } from "@prisma/client";
+import { useSession } from "next-auth/react";
 
 interface Direccion {
-  id: string
-  calle: string
-  numero: string
-  sector: string
-  municipio: string
-  provincia: ProvinciaRD
-  codigoPostal?: string
-  telefono: string
-  celular?: string
-  agenciaEnvio?: AgenciaEnvio
-  sucursalAgencia?: string
-  predeterminada: boolean
+  id: string;
+  calle: string;
+  numero: string;
+  sector: string;
+  municipio: string;
+  provincia: ProvinciaRD;
+  codigoPostal?: string;
+  telefono: string;
+  celular?: string;
+  agenciaEnvio?: AgenciaEnvio;
+  sucursalAgencia?: string;
+  predeterminada: boolean;
 }
 
 interface AddressSelectorProps {
-  onSelect: (addressId: string) => void
-  selected: string
+  onSelect: (addressId: string) => void;
+  selected: string;
 }
 
-export default function AddressSelector({ onSelect, selected }: AddressSelectorProps) {
-  const { status } = useSession()
-  const [direcciones, setDirecciones] = useState<Direccion[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export default function AddressSelector({
+  onSelect,
+  selected,
+}: AddressSelectorProps) {
+  const { status } = useSession();
+  const [direcciones, setDirecciones] = useState<Direccion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchDirecciones = useCallback(async () => {
-    if (status !== 'authenticated') {
-     // console.log('Usuario no autenticado') // Debug
-      return
+    if (status !== "authenticated") {
+      // console.log('Usuario no autenticado') // Debug
+      return;
     }
 
     try {
-      setIsLoading(true)
-      setError(null)
-      
+      setIsLoading(true);
+      setError(null);
+
       //console.log('Iniciando fetch de direcciones') // Debug
-      
-      const res = await fetch('/api/direcciones', {
+
+      const res = await fetch("/api/direcciones", {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        credentials: 'include'
-      })
+        credentials: "include",
+      });
 
       //console.log('Status de respuesta:', res.status) // Debug
 
       if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Error al cargar direcciones')
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error al cargar direcciones");
       }
 
-      const data = await res.json()
+      const data = await res.json();
       //console.log('Datos recibidos:', data) // Debug
 
       if (Array.isArray(data)) {
-        setDirecciones(data)
-        
-        const predeterminada = data.find((d: Direccion) => d.predeterminada)
+        setDirecciones(data);
+
+        const predeterminada = data.find((d: Direccion) => d.predeterminada);
         if (predeterminada && !selected) {
-          onSelect(predeterminada.id)
+          onSelect(predeterminada.id);
         }
       } else {
-        throw new Error('Formato de datos inválido')
+        throw new Error("Formato de datos inválido");
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error al cargar las direcciones'
-      setError(message)
-      toast.error(message)
-      console.error('Error detallado:', error)
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Error al cargar las direcciones";
+      setError(message);
+      // toast.error(message)
+      console.error("Error detallado:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [onSelect, selected, status])
+  }, [onSelect, selected, status]);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      fetchDirecciones()
+    if (status === "authenticated") {
+      fetchDirecciones();
     }
-  }, [fetchDirecciones, status])
+  }, [fetchDirecciones, status]);
 
-  if (status === 'loading' || isLoading) {
+  if (status === "loading" || isLoading) {
     return (
       <div className="flex justify-center p-4">
         <FaSpinner className="animate-spin h-6 w-6 text-pink-500" />
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
       <div className="text-red-500 p-4 text-center">
         {error}
-        <button 
+        <button
           onClick={fetchDirecciones}
           className="ml-2 text-pink-500 hover:text-pink-600"
         >
           Reintentar
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -130,8 +135,8 @@ export default function AddressSelector({ onSelect, selected }: AddressSelectorP
         <div className="border rounded-lg p-4 bg-gray-50">
           <DireccionForm
             onSuccess={() => {
-              setShowForm(false)
-              fetchDirecciones()
+              setShowForm(false);
+              fetchDirecciones();
             }}
           />
         </div>
@@ -147,9 +152,11 @@ export default function AddressSelector({ onSelect, selected }: AddressSelectorP
             <label
               key={direccion.id}
               className={`block relative border rounded-lg p-4 cursor-pointer transition-all
-                ${selected === direccion.id 
-                  ? 'border-pink-500 bg-pink-50' 
-                  : 'border-gray-300 hover:border-pink-300'}`}
+                ${
+                  selected === direccion.id
+                    ? "border-pink-500 bg-pink-50"
+                    : "border-gray-300 hover:border-pink-300"
+                }`}
             >
               <input
                 type="radio"
@@ -182,5 +189,5 @@ export default function AddressSelector({ onSelect, selected }: AddressSelectorP
         </div>
       )}
     </div>
-  )
-} 
+  );
+}

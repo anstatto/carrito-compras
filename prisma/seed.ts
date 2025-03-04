@@ -1,20 +1,21 @@
 import { PrismaClient, TipoPago, MarcaTarjeta } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 const CATEGORIAS = [
-  // {
-  //   nombre: "Facial",
-  //   descripcion: "Productos para el cuidado facial",
-  //   imagen: "/categorias/facial.jpg",
-  //   slug: "facial",
-  // },
-  // {
-  //   nombre: "Corporal",
-  //   descripcion: "Productos para el cuidado corporal",
-  //   imagen: "/categorias/corporal.jpg",
-  //   slug: "corporal",
-  // },
+  {
+    nombre: "Facial",
+    descripcion: "Productos para el cuidado facial",
+    imagen: "/categorias/facial.jpg",
+    slug: "facial",
+  },
+  {
+    nombre: "Corporal",
+    descripcion: "Productos para el cuidado corporal",
+    imagen: "/categorias/corporal.jpg",
+    slug: "corporal",
+  },
   {
     nombre: "Cabello",
     descripcion: "Productos para el cuidado del cabello",
@@ -58,7 +59,7 @@ const METODOS_PAGO = [
     ultimosDigitos: "9424",
   },
   {
-    tipo: TipoPago.OXXO,
+    tipo: TipoPago.EFECTIVO,
   },
   {
     tipo: TipoPago.TRANSFERENCIA,
@@ -69,6 +70,11 @@ const METODOS_PAGO = [
 ];
 
 async function main() {
+  // Eliminar datos existentes
+  await prisma.metodoPago.deleteMany();
+  await prisma.categoria.deleteMany();
+  await prisma.user.deleteMany();
+
   // Crear categorías
   for (const categoria of CATEGORIAS) {
     await prisma.categoria.create({
@@ -76,13 +82,25 @@ async function main() {
     });
   }
 
-  const userId = "cm7c8t95j0000jr03l22vsn9j"; // Reemplaza con el ID de tu usuario
+  // Crear usuario administrador
+  const hashedPassword = await bcrypt.hash("admin123", 10);
+  const admin = await prisma.user.create({
+    data: {
+      nombre: "Admin",
+      apellido: "Sistema",
+      email: "admin@example.com",
+      password: hashedPassword,
+      role: "ADMIN",
+      activo: true,
+    },
+  });
 
+  // Crear métodos de pago para el admin
   for (const metodo of METODOS_PAGO) {
     await prisma.metodoPago.create({
       data: {
         ...metodo,
-        userId: userId,
+        userId: admin.id,
       },
     });
   }

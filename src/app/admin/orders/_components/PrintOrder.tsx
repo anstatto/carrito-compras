@@ -1,28 +1,42 @@
 'use client'
 
-import { FaEye } from 'react-icons/fa'
-import { motion } from 'framer-motion'
-import { useRouter } from 'next/navigation'
+import { FaPrint } from 'react-icons/fa'
+import { Order } from '@/interfaces/Order'
 
 interface PrintOrderProps {
-  order: {
-    id: string
-    numero: string
-  }
+  order: Order
 }
 
 export default function PrintOrder({ order }: PrintOrderProps) {
-  const router = useRouter()
+  const handlePrint = async () => {
+    try {
+      const response = await fetch(`/api/orders/${order.id}?format=pdf`, {
+        method: 'GET',
+      })
+      
+      if (!response.ok) throw new Error('Error al generar el PDF')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+      }, 100)
+    } catch (error) {
+      console.error('Error al imprimir:', error)
+      alert('Error al generar el PDF')
+    }
+  }
 
   return (
-    <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={() => router.push(`/admin/orders/${order.id}`)}
-      className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+    <button
+      onClick={handlePrint}
+      className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-700 rounded-lg hover:bg-gray-50"
+      title="Imprimir orden"
     >
-      <FaEye className="w-4 h-4" />
-      <span>Ver Orden</span>
-    </motion.button>
+      <FaPrint />
+      <span>Imprimir</span>
+    </button>
   )
 } 

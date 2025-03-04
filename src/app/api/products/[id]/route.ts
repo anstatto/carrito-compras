@@ -66,12 +66,14 @@ export async function GET(request: Request, { params }: { params: Promise<Params
       );
     }
 
-    // Procesar URLs de imágenes
+    // Procesar URLs de imágenes si es necesario
     const processedProduct = {
       ...producto,
       imagenes: producto.imagenes.map((img) => ({
         ...img,
-        url: `/productos/${img.url.split("/").pop()}`,
+        url: img.url.startsWith('http') 
+          ? img.url 
+          : `https://res.cloudinary.com/dwga2dsbz/image/upload/${img.url}`
       })),
     };
 

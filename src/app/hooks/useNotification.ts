@@ -1,8 +1,8 @@
-import toast from 'react-hot-toast'
+import toast, { Renderable } from 'react-hot-toast'
 
 type NotificationOptions = {
   duration?: number
-  icon?: string | React.ReactNode
+  icon?: Renderable
 }
 
 export const useNotification = () => {
@@ -15,6 +15,7 @@ export const useNotification = () => {
         color: '#fff',
         borderRadius: '10px',
       },
+      position: 'bottom-left', // Cambiar la posición aquí
     })
   }
 
@@ -27,6 +28,7 @@ export const useNotification = () => {
         color: '#fff',
         borderRadius: '10px',
       },
+      position: 'bottom-left', // Cambiar la posición aquí
     })
   }
 
@@ -39,8 +41,9 @@ export const useNotification = () => {
         color: '#fff',
         borderRadius: '10px',
       },
+      position: 'bottom-left', // Cambiar la posición aquí
     })
   }
 
   return { showSuccess, showError, showInfo }
-} 
+}

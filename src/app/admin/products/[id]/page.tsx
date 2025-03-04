@@ -220,6 +220,7 @@ export default function ShowProductPage({ params }: Props) {
               <h3 className="text-sm font-medium text-gray-500 mb-3">Imágenes</h3>
               <div className="grid grid-cols-2 gap-4">
                 {product.imagenes.map((imagen, index) => (
+                  console.log("imagen:", imagen),
                   <div 
                     key={index} 
                     className="relative aspect-square rounded-xl overflow-hidden group"
@@ -229,7 +230,7 @@ export default function ShowProductPage({ params }: Props) {
                       alt={imagen.alt || `${product.nombre} - Imagen ${index + 1}`}
                       priority={index === 0}
                       sizes="(max-width: 768px) 50vw, 33vw"
-                      className="transition-transform group-hover:scale-110"
+                      className="object-cover transition-transform group-hover:scale-110"
                       fill={true}
                     />
                   </div>

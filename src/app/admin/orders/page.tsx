@@ -1,231 +1,354 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback, memo } from 'react'
-import { useSession } from 'next-auth/react'
-import { FaCheck, FaTimes, FaSearch } from 'react-icons/fa'
-import { toast } from 'react-hot-toast'
-import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import OrdersLoading from './loading'
-import PrintOrder from './_components/PrintOrder'
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "react-hot-toast";
+import OrdersTable from "./_components/OrdersTable";
+import OrderForm from "./_components/OrderForm";
+import { Order } from "@/interfaces/Order";
+import { 
+  FaPlus, 
+  FaTimes, 
+  FaShoppingBag,
+  FaChartLine,
+  FaSpinner,
+  FaSearch,
+  FaCalendar
+} from "react-icons/fa";
+import { EstadoPedido, TipoPago } from "@prisma/client";
+import { useRouter, useSearchParams } from 'next/navigation';
 
-interface Order {
-  id: string
-  numero: string
-  clienteId: string
+interface PaginationData {
+  total: number;
+  pages: number;
+  currentPage: number;
+  limit: number;
+}
+
+interface OrderFilters {
+  busqueda: string;
+  estado: string;
+  metodoPago: string;
+  fechaInicio: string;
+  fechaFin: string;
+  page: number;
+  limit: number;
+}
+
+interface ApiOrder {
+  id: string;
+  numero: string;
+  estado: string;
+  total: number;
+  metodoPago: { tipo: TipoPago } | null;
   cliente: {
-    nombre: string
-    email: string
-  }
-  total: number
-  estado: 'PENDIENTE' | 'PAGADO' | 'PREPARANDO' | 'ENVIADO' | 'ENTREGADO' | 'CANCELADO'
-  metodoPago: string
-  creadoEl: string
-  items: Array<{
-    cantidad: number
-    precioUnit: number
-    subtotal: number
-    producto: {
-      nombre: string
-      imagenes: Array<{ url: string }>
-    }
-  }>
+    nombre: string;
+    apellido: string;
+    email: string;
+  };
+  creadoEl: string;
 }
 
-const getStatusColor = (status: Order['estado']): string => {
-  const colors = {
-    PENDIENTE: 'bg-yellow-100 text-yellow-800',
-    PAGADO: 'bg-blue-100 text-blue-800',
-    PREPARANDO: 'bg-purple-100 text-purple-800',
-    ENVIADO: 'bg-indigo-100 text-indigo-800',
-    ENTREGADO: 'bg-green-100 text-green-800',
-    CANCELADO: 'bg-red-100 text-red-800',
-  }
-  return colors[status] || 'bg-gray-100 text-gray-800'
-}
+const ESTADOS = [
+  { value: '', label: 'Todos' },
+  { value: 'PENDIENTE', label: 'Pendiente' },
+  { value: 'PAGADO', label: 'Pagado' },
+  { value: 'CONFIRMADO', label: 'Confirmado' },
+  { value: 'PREPARANDO', label: 'Preparando' },
+  { value: 'ENVIADO', label: 'Enviado' },
+  { value: 'ENTREGADO', label: 'Entregado' },
+  { value: 'CANCELADO', label: 'Cancelado' },
+]
 
-// Memoizar componentes para mejor rendimiento
-const OrderRow = memo(({ 
-  order, 
-  onUpdateStatus 
-}: { 
-  order: Order, 
-  onUpdateStatus: (id: string, status: Order['estado']) => Promise<void> 
-}) => {
-  const statusColor = getStatusColor(order.estado)
-  
-  return (
-    <motion.tr 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="hover:bg-gray-50 transition-colors duration-200"
-    >
-      <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-        <div className="text-xs md:text-sm font-medium text-gray-900">{order.numero}</div>
-      </td>
-      <td className="px-3 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
-        <div className="text-xs md:text-sm font-medium text-gray-900">{order.cliente.nombre}</div>
-        <div className="text-xs md:text-sm text-gray-500">{order.cliente.email}</div>
-      </td>
-      <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
-        ${order.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-      </td>
-      <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}`}>
-          {order.estado}
-        </span>
-      </td>
-      <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500 hidden lg:table-cell">
-        {order.metodoPago}
-      </td>
-      <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500 hidden md:table-cell">
-        {new Date(order.creadoEl).toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        })}
-      </td>
-      <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm font-medium">
-        <div className="flex items-center gap-2 md:gap-3">
-          <PrintOrder order={order} />
-          <button
-            onClick={() => onUpdateStatus(order.id, 'PREPARANDO')}
-            className="text-blue-600 hover:text-blue-900 transition-colors duration-200"
-            title="Marcar como en preparación"
-          >
-            <FaCheck className="w-4 h-4 md:w-5 md:h-5" />
-          </button>
-          <button
-            onClick={() => {
-              if (window.confirm('¿Estás seguro de que deseas cancelar este pedido?')) {
-                onUpdateStatus(order.id, 'CANCELADO')
-              }
-            }}
-            className="text-red-600 hover:text-red-900 transition-colors duration-200"
-            title="Cancelar pedido"
-          >
-            <FaTimes className="w-4 h-4 md:w-5 md:h-5" />
-          </button>
-        </div>
-      </td>
-    </motion.tr>
-  )
-})
-OrderRow.displayName = 'OrderRow'
-
-const SearchBar = memo(({ 
-  value, 
-  onChange 
-}: { 
-  value: string, 
-  onChange: (value: string) => void 
-}) => (
-  <div className="relative">
-    <input
-      type="text"
-      placeholder="Buscar pedido..."
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full p-3 pl-10 rounded-lg border focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-    />
-    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-  </div>
-))
-SearchBar.displayName = 'SearchBar'
+const METODOS_PAGO = [
+  { value: '', label: 'Todos' },
+  { value: 'EFECTIVO', label: 'Efectivo' },
+  { value: 'TRANSFERENCIA', label: 'Transferencia' },
+  { value: 'TARJETA', label: 'Tarjeta' },
+  { value: 'STRIPE', label: 'Stripe' },
+]
 
 export default function OrdersPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
-  const [orders, setOrders] = useState<Order[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  const searchParams = useSearchParams()
+  
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrder, setShowNewOrder] = useState(false);
+  const [filters, setFilters] = useState<OrderFilters>({
+    busqueda: searchParams.get('busqueda') || '',
+    estado: searchParams.get('estado') || '',
+    metodoPago: searchParams.get('metodoPago') || '',
+    fechaInicio: searchParams.get('fechaInicio') || new Date().toISOString().split('T')[0],
+    fechaFin: searchParams.get('fechaFin') || new Date().toISOString().split('T')[0],
+    page: Number(searchParams.get('page')) || 1,
+    limit: 10
+  });
+  const [pagination, setPagination] = useState<PaginationData>({
+    total: 0,
+    pages: 1,
+    currentPage: 1,
+    limit: 10
+  });
 
   const fetchOrders = useCallback(async () => {
     try {
-      const res = await fetch('/api/orders')
-      if (!res.ok) throw new Error('Error al cargar pedidos')
-      const data = await res.json()
-      setOrders(data)
-    } catch (error) {
-      toast.error('Error al cargar los pedidos')
-      console.error(error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  const updateOrderStatus = useCallback(async (orderId: string, newStatus: Order['estado']) => {
-    try {
-      const res = await fetch(`/api/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado: newStatus }),
-      })
-
-      if (!res.ok) throw new Error('Error al actualizar el pedido')
+      setIsLoading(true);
+      const queryParams = new URLSearchParams();
       
-      toast.success('Estado del pedido actualizado correctamente')
-      await fetchOrders()
+      if (filters.page) queryParams.set('page', String(filters.page));
+      if (filters.limit) queryParams.set('limit', String(filters.limit));
+      if (filters.estado) queryParams.set('estado', filters.estado);
+      if (filters.busqueda) queryParams.set('busqueda', filters.busqueda);
+      if (filters.metodoPago) queryParams.set('metodoPago', filters.metodoPago);
+      if (filters.fechaInicio) queryParams.set('fechaInicio', filters.fechaInicio);
+      if (filters.fechaFin) queryParams.set('fechaFin', filters.fechaFin);
+
+      const res = await fetch(`/api/orders?${queryParams}`);
+      if (!res.ok) throw new Error('Error al cargar las órdenes');
+      const data = await res.json();
+      
+      const ordersWithCorrectTypes = data.orders.map((order: ApiOrder) => ({
+        ...order,
+        estado: order.estado as EstadoPedido,
+        metodoPago: order.metodoPago ? {
+          tipo: order.metodoPago.tipo
+        } : null
+      }));
+
+      setOrders(ordersWithCorrectTypes);
+      setPagination(data.pagination);
     } catch (error) {
-      toast.error('Error al actualizar el estado del pedido')
-      console.error(error)
+      console.error(error);
+      toast.error('Error al cargar las órdenes');
+    } finally {
+      setIsLoading(false);
     }
-  }, [fetchOrders])
+  }, [filters]);
 
   useEffect(() => {
-    if (status === 'loading') return
-    if (!session || session.user.role !== 'ADMIN') {
-      router.push('/')
-      return
+    fetchOrders();
+  }, [fetchOrders]);
+
+  const handleFilterChange = (key: keyof OrderFilters, value: string | number) => {
+    setFilters(prev => ({ 
+      ...prev, 
+      [key]: value,
+      page: key === 'page' ? Number(value) : 1
+    }));
+    
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set(key, value.toString());
+    } else {
+      params.delete(key);
     }
-    fetchOrders()
-  }, [session, status, router, fetchOrders])
+    if (key !== 'page') params.set('page', '1');
+    router.push(`?${params.toString()}`);
+  };
 
-  const filteredOrders = orders.filter(order => 
-    order.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.cliente.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: newStatus })
+      });
 
-  if (isLoading) {
-    return <OrdersLoading />
-  }
+      if (!res.ok) throw new Error("Error al actualizar el estado");
+      
+      setOrders(orders.map(order => 
+        order.id === orderId ? { ...order, estado: newStatus as EstadoPedido } : order
+      ));
+      
+      toast.success("Estado actualizado correctamente");
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al actualizar el estado");
+    }
+  };
+
+  const handleUpdatePaymentMethod = async (orderId: string, newPaymentMethod: TipoPago) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metodoPago: newPaymentMethod })
+      });
+
+      if (!res.ok) throw new Error("Error al actualizar el método de pago");
+      
+      setOrders(orders.map(order => 
+        order.id === orderId 
+          ? { ...order, metodoPago: { tipo: newPaymentMethod } } 
+          : order
+      ));
+      
+      toast.success("Método de pago actualizado correctamente");
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al actualizar el método de pago");
+    }
+  };
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <FaSpinner className="animate-spin text-4xl text-pink-500" />
+    </div>
+  );
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-800">Gestión de Pedidos</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <FaShoppingBag className="text-pink-500" />
+            Órdenes
+          </h1>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <FaChartLine className="text-gray-400" />
+            <p>Total: {pagination.total} órdenes</p>
+          </div>
+        </div>
+        
+        <button
+          onClick={() => setShowNewOrder(!showNewOrder)}
+          className="px-4 py-2 bg-gradient-to-r from-pink-500 to-violet-500 
+                   text-white rounded-lg hover:shadow-lg transition-all duration-200
+                   flex items-center gap-2 w-full md:w-auto justify-center"
+        >
+          {showNewOrder ? (
+            <>
+              <FaTimes />
+              Cancelar
+            </>
+          ) : (
+            <>
+              <FaPlus />
+              Nueva Orden
+            </>
+          )}
+        </button>
       </div>
 
-      <SearchBar value={searchTerm} onChange={setSearchTerm} />
-      
-      <div className="mt-6 overflow-x-auto">
-        <table className="min-w-full">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Número</th>
-              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Cliente</th>
-              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Método Pago</th>
-              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Fecha</th>
-              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <AnimatePresence>
-              {filteredOrders.map(order => (
-                <OrderRow 
-                  key={order.id} 
-                  order={order} 
-                  onUpdateStatus={updateOrderStatus}
+      <div className="bg-white rounded-lg shadow-lg">
+        {showNewOrder ? (
+          <div className="p-6">
+            <OrderForm 
+              onSuccess={() => {
+                setShowNewOrder(false);
+                fetchOrders();
+              }} 
+            />
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="relative">
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por número o cliente..."
+                    value={filters.busqueda}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('busqueda', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300"
+                  />
+                </div>
+                
+                <div>
+                  <select
+                    value={filters.estado}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFilterChange('estado', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300"
+                  >
+                    {ESTADOS.map(estado => (
+                      <option key={estado.value} value={estado.value}>
+                        {estado.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <select
+                    value={filters.metodoPago}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFilterChange('metodoPago', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300"
+                  >
+                    {METODOS_PAGO.map(metodo => (
+                      <option key={metodo.value} value={metodo.value}>
+                        {metodo.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="relative">
+                  <FaCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="date"
+                    value={filters.fechaInicio}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('fechaInicio', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300"
+                  />
+                </div>
+
+                <div className="relative">
+                  <FaCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="date"
+                    value={filters.fechaFin}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('fechaFin', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              {isLoading ? (
+                <div className="p-6 space-y-4">
+                  <div className="h-12 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-12 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-12 bg-gray-200 rounded animate-pulse" />
+                </div>
+              ) : (
+                <OrdersTable 
+                  orders={orders}
+                  onUpdateStatus={handleUpdateStatus}
+                  onUpdatePaymentMethod={handleUpdatePaymentMethod}
                 />
-              ))}
-            </AnimatePresence>
-          </tbody>
-        </table>
+              )}
+            </div>
+            
+            {/* Paginación */}
+            <div className="p-4 flex justify-between items-center">
+              <span className="text-sm text-gray-600">
+                Mostrando {Math.min((filters.page - 1) * filters.limit + 1, pagination.total)} - 
+                {Math.min(filters.page * filters.limit, pagination.total)} de {pagination.total} órdenes
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleFilterChange('page', filters.page - 1)}
+                  disabled={filters.page === 1}
+                  className="px-4 py-2 rounded-lg border disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <span className="px-4 py-2">
+                  Página {filters.page} de {pagination.pages}
+                </span>
+                <button
+                  onClick={() => handleFilterChange('page', filters.page + 1)}
+                  disabled={filters.page === pagination.pages}
+                  className="px-4 py-2 rounded-lg border disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  )
+  );
 }

@@ -1,10 +1,10 @@
-import ProductGrid from "@/app/components/products/ProductGrid";
-import FilterSidebar from "@/app/components/catalog/FilterSidebar";
+import ProductGrid from "@/components/products/ProductGrid";
+import FilterSidebar from "@/components/catalog/FilterSidebar";
 import { Suspense } from "react";
 import Loading from "./loading";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import CatalogHeader from "@/app/components/catalog/CatalogHeader";
+import CatalogHeader from "@/components/catalog/CatalogHeader";
 import { ProductView } from "@/interfaces/Product";
 
 type SearchParams = {

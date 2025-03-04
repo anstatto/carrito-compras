@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from '@/lib/auth'
+import { authOptions } from "@/lib/auth"
 
 export async function GET() {
   try {
@@ -14,41 +14,38 @@ export async function GET() {
       )
     }
 
-    const topProducts = await prisma.itemPedido.groupBy({
-      by: ['productoId'],
-      _sum: {
-        cantidad: true
+    const topProducts = await prisma.producto.findMany({
+      select: {
+        id: true,
+        nombre: true,
+        imagenes: {
+          take: 1,
+          select: {
+            url: true
+          }
+        },
+        _count: {
+          select: {
+            items: true
+          }
+        }
       },
       orderBy: {
-        _sum: {
-          cantidad: 'desc'
+        items: {
+          _count: 'desc'
         }
       },
       take: 5
     })
 
-    const productsWithDetails = await Promise.all(
-      topProducts.map(async (item) => {
-        const product = await prisma.producto.findUnique({
-          where: { id: item.productoId },
-          include: {
-            imagenes: {
-              where: { principal: true },
-              take: 1
-            }
-          }
-        })
+    const formattedProducts = topProducts.map(product => ({
+      id: product.id,
+      nombre: product.nombre,
+      ventas: product._count.items,
+      imagen: product.imagenes[0]?.url
+    }))
 
-        return {
-          id: product?.id,
-          nombre: product?.nombre,
-          ventas: item._sum.cantidad,
-          imagen: product?.imagenes[0]?.url
-        }
-      })
-    )
-
-    return NextResponse.json(productsWithDetails)
+    return NextResponse.json(formattedProducts)
   } catch (error) {
     console.error('Error al obtener productos más vendidos:', error)
     return NextResponse.json(

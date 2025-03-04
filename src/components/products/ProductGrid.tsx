@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Pagination from '../ui/Pagination'
 import ProductCard from './ProductCard'
 import { ProductView } from '@/interfaces/Product'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 interface ProductGridProps {
   products: ProductView[]
@@ -18,9 +19,17 @@ export default function ProductGrid({
   total, 
   currentPage, 
   itemsPerPage, 
-  currentSort 
+  currentSort,
 }: ProductGridProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const totalPages = Math.ceil(total / itemsPerPage)
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('pagina', page.toString())
+    router.push(`/catalogo?${params.toString()}`)
+  }
 
   const sortProducts = (products: ProductView[]): ProductView[] => {
     const sorted = [...products]
@@ -87,7 +96,8 @@ export default function ProductGrid({
       {totalPages > 1 && (
         <Pagination 
           currentPage={currentPage} 
-          totalPages={totalPages} 
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
         />
       )}
     </div>

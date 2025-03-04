@@ -210,8 +210,9 @@ export default function CartDropdown() {
                   <div className="flex justify-between items-center">
                     <button
                       onClick={clearCart}
-                      className="text-sm text-gray-500 hover:text-red-500 transition-colors"
+                      className="flex items-center gap-2 py-2 px-4 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors"
                     >
+                      <FaTrash className="w-4 h-4" />
                       Vaciar carrito
                     </button>
                     <div>

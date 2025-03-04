@@ -10,7 +10,7 @@ import { ProductImage } from '@/interfaces/Product'
 import { Portal } from '@/components/Portal'
 
 // Cargar GalleryPage dinámicamente
-const GalleryPage = dynamic(() => import('../../_components/galeria/Gallery'), {
+const Gallery = dynamic(() => import('../../_components/galeria/Gallery'), {
   loading: () => <div>Cargando galería...</div>,
   ssr: false
 })
@@ -62,11 +62,6 @@ const ImagePreview = memo(({
   index: number
   onRemove: (index: number) => void 
 }) => {
-  // Asegurar que la URL sea válida y completa
-  const imageUrl = image.url.includes('/productos/') 
-    ? image.url 
-    : `/productos/${image.url.split('/').pop()}`
-
   return (
     <motion.div
       layout
@@ -75,7 +70,7 @@ const ImagePreview = memo(({
       className="relative aspect-square group"
     >
       <Image
-        src={imageUrl}
+        src={image.url}
         alt={image.alt || `Producto ${index + 1}`}
         fill
         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -118,21 +113,8 @@ export const ImageSelector = memo(function ImageSelector({
 
       for (const file of files) {
         const formData = new FormData()
-        formData.append('image', file)
+        formData.append('files', file)
         formData.append('module', 'productos')
-        
-        // Limpiar nombre de archivo
-        const cleanFileName = file.name
-          .toLowerCase()
-          .replace(/\s+/g, '_')
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9._-]/g, '')
-        
-        const timestamp = Date.now()
-        const finalFileName = `${cleanFileName.replace(/\.[^/.]+$/, '')}_${timestamp}`
-        
-        formData.append('name', finalFileName)
 
         const res = await fetch('/api/upload', {
           method: 'POST',
@@ -142,14 +124,16 @@ export const ImageSelector = memo(function ImageSelector({
         if (!res.ok) throw new Error('Error al subir imagen')
         
         const data = await res.json()
+        const uploadedFiles = Array.isArray(data) ? data : [data]
         
-        // Asegurar que la URL sea correcta
-        const imageUrl = `/productos/${data.url.split('/').pop()}`
+        for (const uploadedFile of uploadedFiles) {
+          const imageUrl = uploadedFile.url;
 
-        newImages.push({ 
-          url: imageUrl,
-          alt: cleanFileName.replace(/[_-]/g, ' ').replace(/\.[^/.]+$/, '') || 'Imagen de producto'
-        })
+          newImages.push({ 
+            url: imageUrl,
+            alt: file.name.replace(/\.[^/.]+$/, '') || 'Imagen de producto'
+          })
+        }
       }
 
       onImagesChange(newImages)
@@ -191,14 +175,28 @@ export const ImageSelector = memo(function ImageSelector({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg">
         {currentImages.map((image, index) => (
-          <ImagePreview 
+          <div
             key={image.url}
-            image={image}
-            index={index}
-            onRemove={handleRemoveImage}
-          />
+            className="relative aspect-square bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="absolute inset-0 p-2">
+              <Image
+                src={image.url}
+                alt={image.alt || `Producto ${index + 1}`}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-contain hover:scale-105 transition-transform duration-300"
+              />
+            </div>
+            <button
+              onClick={() => handleRemoveImage(index)}
+              className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 hover:bg-red-600"
+            >
+              <FaTimes size={12} />
+            </button>
+          </div>
         ))}
       </div>
 
@@ -233,12 +231,23 @@ export const ImageSelector = memo(function ImageSelector({
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4">
-                  <GalleryPage 
-                    onImageSelect={(url) => {
-                      onImagesChange([...currentImages, { url, alt: '' }])
-                      setShowGallery(false)
+                  <Gallery 
+                    selectionMode="url-only"
+                    onImageSelect={(image) => {
+                      const imageUrl = typeof image === 'string' ? image : image.url;
+                      
+                      onImagesChange([
+                        ...currentImages, 
+                        { 
+                          url: imageUrl,
+                          alt: typeof image === 'string' ? 'Imagen de producto' : image.name
+                        }
+                      ]);
+                      
+                      toast.success('Imagen agregada al producto');
+                      setShowGallery(false);
                     }}
-                    selectionMode={true}
+                    allowedModules={["productos"]}
                   />
                 </div>
               </motion.div>
