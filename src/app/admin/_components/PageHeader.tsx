@@ -1,3 +1,5 @@
+'use client'
+
 import { motion } from "framer-motion";
 
 interface PageHeaderProps {
@@ -5,7 +7,7 @@ interface PageHeaderProps {
   description?: string;
 }
 
-export function PageHeader({ title, description }: PageHeaderProps) {
+const PageHeader = ({ title, description }: PageHeaderProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
@@ -20,4 +22,6 @@ export function PageHeader({ title, description }: PageHeaderProps) {
       )}
     </motion.div>
   );
-} 
+}
+
+export default PageHeader; 

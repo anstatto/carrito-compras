@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { CategoryList } from "./_components/CategoryList";
-import { PageHeader } from "../_components/PageHeader";
+import PageHeader from "../_components/PageHeader";
 import { FaPlus } from "react-icons/fa";
 import Link from "next/link";
 
