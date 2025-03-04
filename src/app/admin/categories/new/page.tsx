@@ -1,4 +1,4 @@
-import { PageHeader } from "../../_components/PageHeader";
+import PageHeader from "../../_components/PageHeader";
 import { CategoryForm } from "../_components/CategoryForm";
 import { Metadata } from "next";
 
