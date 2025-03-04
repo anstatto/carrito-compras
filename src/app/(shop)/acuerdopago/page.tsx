@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
+import { MarcaProducto } from "@prisma/client";
 import OrderSummary from "./_components/OrderSummary";
 import AddressSelector from "./_components/AddressSelector";
 import { FaWhatsapp } from "react-icons/fa";
@@ -15,6 +16,8 @@ interface CartItem {
   precio: number;
   imagen: string;
   cantidad: number;
+  marca: MarcaProducto;
+  existencias: number;
 }
 
 const sendToWhatsApp = async (
@@ -27,11 +30,6 @@ const sendToWhatsApp = async (
     return;
   }
 
-  if (items.length === 0) {
-    toast.error("Tu carrito está vacío.");
-    return;
-  }
-
   const loadingToast = toast.loading("Generando solicitud de pedido...");
 
   try {
@@ -41,10 +39,12 @@ const sendToWhatsApp = async (
     );
 
     const orderData = {
-      items: items.map(({ id, cantidad, precio }) => ({
+      items: items.map(({ id, cantidad, precio, marca, nombre }) => ({
         id,
         cantidad,
         precio: Number(precio),
+        marca,
+        nombre
       })),
       direccionId: selectedAddress,
       total: Number(total),
@@ -62,51 +62,51 @@ const sendToWhatsApp = async (
     const data = await response.json();
 
     if (!response.ok) {
-      // Manejar errores de inventario
-      if (data.detalles) {
-        const { existencias, productoId, cantidadSolicitada } = data.detalles;
+      // Solo actualizamos el carrito si hay problemas de inventario específicos
+      if (data.detalles?.productoId) {
+        const { existencias, productoId } = data.detalles;
         
-        if (existencias === 0) {
-          const newItems = items.filter(item => item.id !== productoId);
+        // Actualizamos el carrito solo si es necesario
+        const newItems = items.map(item =>
+          item.id === productoId && item.cantidad > existencias
+            ? { ...item, cantidad: Math.max(1, existencias) }
+            : item
+        ).filter(item => item.cantidad > 0);
+
+        if (newItems.length !== items.length) {
           localStorage.setItem("cart", JSON.stringify(newItems));
           window.dispatchEvent(new Event("cartUpdated"));
-        } else if (existencias < cantidadSolicitada) {
-          const newItems = items.map(item =>
-            item.id === productoId
-              ? { ...item, cantidad: existencias }
-              : item
-          );
-          localStorage.setItem("cart", JSON.stringify(newItems));
-          window.dispatchEvent(new Event("cartUpdated"));
+          toast.error(`Algunos productos fueron actualizados debido a cambios en el inventario`);
         }
       }
       throw new Error(data.error || "Error al procesar el pedido");
     }
 
-    if (!data.whatsappUrl) {
-      throw new Error("No se pudo generar el enlace de WhatsApp");
-    }
-
     toast.dismiss(loadingToast);
-    toast.success("Solicitud de pedido generada. Por favor, confirme a través de WhatsApp.");
+    toast.success("¡Pedido generado! Abriendo WhatsApp...");
 
     // Abrimos WhatsApp en una nueva pestaña
-    window.open(data.whatsappUrl, "_blank");
+    if (data.whatsappUrl) {
+      window.open(data.whatsappUrl, "_blank");
+    }
 
     // Confirmamos la orden
-    const confirmResponse = await fetch("/api/acuerdopago/confirmar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(orderData),
-    });
+    try {
+      const confirmResponse = await fetch("/api/acuerdopago/confirmar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      });
 
-    if (confirmResponse.ok) {
-      clearCart();
-      toast.success("¡Pedido confirmado exitosamente!");
-    } else {
-      toast.error("Error al confirmar el pedido. Por favor, contacte al administrador.");
+      if (confirmResponse.ok) {
+        clearCart();
+        toast.success("¡Pedido confirmado exitosamente!");
+      }
+    } catch (confirmError) {
+      console.error("Error al confirmar el pedido:", confirmError);
+      // No mostramos error al usuario ya que el pedido ya fue enviado a WhatsApp
     }
   } catch (error) {
     console.error("Error al generar la solicitud de pedido:", error);
@@ -130,15 +130,40 @@ export default function AcuerdoPage() {
 
     if (status === "authenticated") {
       try {
-        const cartItems = JSON.parse(localStorage.getItem("cart") || "[]");
+        const cartData = localStorage.getItem("cart");
+        if (!cartData) {
+          router.push("/catalogo");
+          return;
+        }
+
+        const cartItems = JSON.parse(cartData);
         if (cartItems.length === 0) {
           router.push("/catalogo");
           return;
         }
+
+        // Validar que todos los items tengan los campos necesarios
+        const validItems = cartItems.every((item: CartItem) => 
+          item.id && 
+          item.nombre && 
+          item.precio && 
+          item.imagen && 
+          item.cantidad && 
+          item.marca && 
+          typeof item.existencias === 'number'
+        );
+
+        if (!validItems) {
+          toast.error("Error en el formato de los productos del carrito");
+          router.push("/carrito");
+          return;
+        }
+
         setItems(cartItems);
       } catch (error) {
         console.error("Error loading cart items:", error);
         toast.error("Error al cargar los productos del carrito");
+        router.push("/carrito");
       } finally {
         setIsLoading(false);
       }

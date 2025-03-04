@@ -9,6 +9,8 @@ interface AcuerdoItem {
   id: string;
   cantidad: number;
   precio: number;
+  nombre: string;
+  marca: string;
 }
 
 interface AcuerdoBody {
@@ -97,7 +99,7 @@ const generateWhatsAppMessage = async (
   message += `\n*Total:* RD$${total.toFixed(2)}`;
   message += `\n\n*Estado:* Pendiente de confirmación`;
 
-  const encodedMessage = message;
+  const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${PHONE_NUMBER}?text=${encodedMessage}`;
 };
 
@@ -115,13 +117,6 @@ export async function POST(req: Request) {
     const body = await req.json() as AcuerdoBody;
 
     // Validaciones básicas
-    if (!body.items?.length) {
-      return NextResponse.json(
-        { error: "No hay productos en el carrito" },
-        { status: 400 }
-      );
-    }
-
     if (!body.direccionId) {
       return NextResponse.json(
         { error: "No se ha seleccionado una dirección de envío" },

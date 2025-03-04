@@ -14,6 +14,7 @@ interface Direccion {
   municipio: string;
   provincia: ProvinciaRD;
   codigoPostal?: string;
+  referencia?: string;
   telefono: string;
   celular?: string;
   agenciaEnvio?: AgenciaEnvio;
@@ -175,10 +176,24 @@ export default function AddressSelector({
                     {direccion.sector}, {direccion.municipio}
                   </p>
                   <p className="text-gray-600">
-                    {direccion.provincia}
+                    {direccion.provincia.replace(/_/g, " ")}
                     {direccion.codigoPostal && `, CP ${direccion.codigoPostal}`}
                   </p>
                   <p className="text-gray-600">Tel: {direccion.telefono}</p>
+                  {direccion.celular && (
+                    <p className="text-gray-600">Cel: {direccion.celular}</p>
+                  )}
+                  {direccion.agenciaEnvio && (
+                    <p className="text-gray-600">
+                      Agencia: {direccion.agenciaEnvio.replace(/_/g, " ")}
+                      {direccion.sucursalAgencia && ` - ${direccion.sucursalAgencia}`}
+                    </p>
+                  )}
+                  {direccion.referencia && (
+                    <p className="text-gray-500 text-sm mt-1">
+                      Ref: {direccion.referencia}
+                    </p>
+                  )}
                 </div>
                 {direccion.predeterminada && (
                   <span className="text-sm text-pink-600">Predeterminada</span>
