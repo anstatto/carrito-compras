@@ -6,6 +6,9 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { EstadoPedido, TipoPago } from '@prisma/client'
 import { useRouter } from 'next/navigation'
+import { jsPDF } from 'jspdf'
+import 'jspdf-autotable'
+import type { UserOptions } from 'jspdf-autotable'
 import { 
   FaEye, 
   FaPrint, 
@@ -27,6 +30,15 @@ interface OrdersTableProps {
   onUpdatePaymentMethod: (orderId: string, newPaymentMethod: TipoPago) => Promise<void>
 }
 
+interface AutoTable {
+  finalY: number;
+}
+
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: UserOptions) => void;
+  lastAutoTable: AutoTable;
+}
+
 const formatMoney = (amount: number | string | { toString: () => string }) => {
   const value = typeof amount === 'number' ? amount : parseFloat(amount.toString())
   return `RD$${value.toFixed(2)}`
@@ -38,6 +50,119 @@ const iconos = {
   TARJETA: <FaCreditCard className="text-purple-500" />,
   STRIPE: <FaCreditCard className="text-pink-500" />,
   OXXO: <FaMoneyBill className="text-orange-500" />
+}
+
+const generatePDF = (order: Order) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  }) as jsPDFWithAutoTable
+
+  // Configurar fuente
+  doc.setFont('helvetica')
+
+  // Agregar encabezado
+  doc.setFontSize(20)
+  doc.text('ArlingLow Care', doc.internal.pageSize.width / 2, 20, { align: 'center' })
+  
+  doc.setFontSize(14)
+  doc.text(`Orden #${order.numero}`, doc.internal.pageSize.width / 2, 30, { align: 'center' })
+  
+  doc.setFontSize(10)
+  doc.text(
+    `Fecha: ${order.creadoEl ? new Date(order.creadoEl).toLocaleDateString('es-ES') : ''}`,
+    doc.internal.pageSize.width / 2,
+    37,
+    { align: 'center' }
+  )
+
+  // Información del cliente
+  doc.setFontSize(12)
+  doc.text('Cliente:', 20, 50)
+  doc.setFontSize(10)
+  doc.text([
+    `${order.cliente?.nombre} ${order.cliente?.apellido}`,
+    `Email: ${order.cliente?.email}`,
+    `Tel: ${order.cliente?.telefono || 'N/A'}`
+  ], 20, 55)
+
+  // Dirección
+  doc.setFontSize(12)
+  doc.text('Envío:', 20, 75)
+  doc.setFontSize(10)
+  const direccionLines = [
+    `${order.direccion?.calle} #${order.direccion?.numero}`,
+    `${order.direccion?.sector}, ${order.direccion?.municipio}`,
+    order.direccion?.provincia
+  ]
+
+  if (order.direccion?.agenciaEnvio) {
+    direccionLines.push(
+      `${order.direccion.agenciaEnvio.replace(/_/g, ' ')}`,
+      order.direccion.sucursalAgencia || ''
+    )
+  }
+
+  doc.text(direccionLines, 20, 80)
+
+  // Tabla de productos
+  const tableData = order.items?.map(item => [
+    item.producto.nombre,
+    item.cantidad.toString(),
+    `RD$${Number(item.precioUnit).toFixed(2)}`,
+    `RD$${(Number(item.precioUnit) * item.cantidad).toFixed(2)}`
+  ]) || []
+
+  doc.autoTable({
+    startY: 100,
+    head: [['Producto', 'Cant.', 'Precio', 'Total']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [233, 30, 99],
+      textColor: 255,
+      fontSize: 10,
+      fontStyle: 'bold'
+    },
+    styles: {
+      fontSize: 9,
+      cellPadding: 3
+    },
+    columnStyles: {
+      0: { cellWidth: 90 },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 35, halign: 'right' },
+      3: { cellWidth: 35, halign: 'right' }
+    }
+  })
+
+  const finalY = (doc as jsPDFWithAutoTable).lastAutoTable?.finalY || 120
+  doc.setFontSize(12)
+  doc.text(
+    `Total: RD$${Number(order.total).toFixed(2)}`,
+    doc.internal.pageSize.width - 20,
+    finalY + 10,
+    { align: 'right' }
+  )
+
+  doc.setFontSize(8)
+  const pageHeight = doc.internal.pageSize.height
+  doc.text('¡Gracias por su compra!', doc.internal.pageSize.width / 2, pageHeight - 10, { align: 'center' })
+
+  return doc
+}
+
+const handlePrint = async (order: Order) => {
+  try {
+    const doc = generatePDF(order)
+    
+    // Abrir el PDF en una nueva pestaña
+    window.open(doc.output('bloburl'), '_blank')
+  } catch (error) {
+    console.error('Error al generar el PDF:', error)
+    alert('Error al generar el PDF')
+  }
 }
 
 export default function OrdersTable({ orders, onUpdateStatus, onUpdatePaymentMethod }: OrdersTableProps) {
@@ -70,35 +195,6 @@ export default function OrdersTable({ orders, onUpdateStatus, onUpdatePaymentMet
       case 'CANCELADO': return <FaTimesCircle className="text-red-500" />
       case 'CONFIRMADO': return <FaCheck className="text-blue-500" />
       default: return null
-    }
-  }
-
-  const handlePrint = async (orderId: string) => {
-    try {
-      const response = await fetch(`/api/orders/${orderId}?format=pdf`, {
-        method: 'GET',
-      })
-      
-      if (!response.ok) {
-        throw new Error('Error al generar el PDF')
-      }
-      
-      // Obtener el blob del PDF
-      const blob = await response.blob()
-      
-      // Crear URL del blob
-      const url = window.URL.createObjectURL(blob)
-      
-      // Abrir en nueva pestaña
-      window.open(url, '_blank')
-      
-      // Limpiar URL después de un momento
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url)
-      }, 100)
-    } catch (error) {
-      console.error('Error al imprimir:', error)
-      alert('Error al generar el PDF')
     }
   }
 
@@ -226,7 +322,7 @@ export default function OrdersTable({ orders, onUpdateStatus, onUpdatePaymentMet
                         <FaEye />
                       </button>
                       <button
-                        onClick={() => handlePrint(order.id)}
+                        onClick={() => handlePrint(order)}
                         className="text-gray-600 hover:text-gray-700 p-2 rounded-full hover:bg-gray-50"
                         title="Imprimir orden"
                       >

@@ -80,6 +80,27 @@ export default function ProductContent({ producto }: ProductContentProps) {
           />
         </div>
 
+        {/* Descripción del producto */}
+        <p className="text-gray-700 dark:text-gray-300">
+          {producto.descripcion}
+        </p>
+
+        {/* Precios */}
+        <div className="text-lg font-semibold">
+          {producto.enOferta ? (
+            <>
+              <span className="line-through text-gray-500 dark:text-gray-400">
+                RD${producto.precio.toFixed(2)}
+              </span>
+              <span className="text-pink-600 ml-2">
+                RD${producto.precioOferta?.toFixed(2)}
+              </span>
+            </>
+          ) : (
+            <span>RD${producto.precio.toFixed(2)}</span>
+          )}
+        </div>
+
         {/* Botón de agregar al carrito */}
         {producto.existencias > 0 && (
           <AddToCartButton
