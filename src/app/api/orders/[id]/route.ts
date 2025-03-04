@@ -13,110 +13,110 @@ interface jsPDFWithAutoTable extends jsPDF {
 }
 
 async function generatePDF(order: Order) {
-  // Crear nuevo documento PDF
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4'
-  }) as jsPDFWithAutoTable
+  try {
+    // Crear nuevo documento PDF
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    }) as jsPDFWithAutoTable
 
-  // Configurar fuente
-  doc.setFont('helvetica')
+    // Configurar fuente
+    doc.setFont('helvetica')
 
-  // Agregar logo y encabezado
-  doc.setFontSize(24)
-  doc.text('ArlingLow Care', doc.internal.pageSize.width / 2, 20, { align: 'center' })
-  
-  doc.setFontSize(16)
-  doc.text(`Orden de Compra #${order.numero}`, doc.internal.pageSize.width / 2, 30, { align: 'center' })
-  
-  doc.setFontSize(12)
-  doc.text(
-    `Fecha: ${order.creadoEl ? new Date(order.creadoEl).toLocaleDateString('es-ES') : ''}`,
-    doc.internal.pageSize.width / 2,
-    37,
-    { align: 'center' }
-  )
-
-  // Información del cliente
-  doc.setFontSize(14)
-  doc.text('Información del Cliente', 20, 50)
-  doc.setFontSize(12)
-  doc.text([
-    `Nombre: ${order.cliente.nombre} ${order.cliente.apellido}`,
-    `Email: ${order.cliente.email}`,
-    `Teléfono: ${order.cliente.telefono || 'No especificado'}`
-  ], 20, 60)
-
-  // Dirección de envío
-  doc.setFontSize(14)
-  doc.text('Dirección de Envío', 20, 85)
-  doc.setFontSize(12)
-  const direccionLines = [
-    `Dirección: ${order.direccion.calle} #${order.direccion.numero}`,
-    `Sector: ${order.direccion.sector}`,
-    `Municipio: ${order.direccion.municipio}`,
-    `Provincia: ${order.direccion.provincia}`
-  ]
-
-  if (order.direccion.agenciaEnvio) {
-    direccionLines.push(
-      `Agencia: ${order.direccion.agenciaEnvio.replace(/_/g, ' ')}`,
-      `Sucursal: ${order.direccion.sucursalAgencia || 'No especificada'}`
+    // Agregar encabezado
+    doc.setFontSize(20)
+    doc.text('ArlingLow Care', doc.internal.pageSize.width / 2, 20, { align: 'center' })
+    
+    doc.setFontSize(14)
+    doc.text(`Orden #${order.numero}`, doc.internal.pageSize.width / 2, 30, { align: 'center' })
+    
+    doc.setFontSize(10)
+    doc.text(
+      `Fecha: ${order.creadoEl ? new Date(order.creadoEl).toLocaleDateString('es-ES') : ''}`,
+      doc.internal.pageSize.width / 2,
+      37,
+      { align: 'center' }
     )
-  }
 
-  doc.text(direccionLines, 20, 95)
+    // Información del cliente
+    doc.setFontSize(12)
+    doc.text('Cliente:', 20, 50)
+    doc.setFontSize(10)
+    doc.text([
+      `${order.cliente.nombre} ${order.cliente.apellido}`,
+      `Email: ${order.cliente.email}`,
+      `Tel: ${order.cliente.telefono || 'N/A'}`
+    ], 20, 55)
 
-  // Tabla de productos
-  const tableData = order.items?.map(item => [
-    item.producto.nombre,
-    item.cantidad.toString(),
-    `RD$${Number(item.precioUnit).toFixed(2)}`,
-    `RD$${(Number(item.precioUnit) * item.cantidad).toFixed(2)}`
-  ]) || []
+    // Dirección
+    doc.setFontSize(12)
+    doc.text('Envío:', 20, 75)
+    doc.setFontSize(10)
+    const direccionLines = [
+      `${order.direccion.calle} #${order.direccion.numero}`,
+      `${order.direccion.sector}, ${order.direccion.municipio}`,
+      order.direccion.provincia
+    ]
 
-
-  doc.autoTable({
-    startY: 130,
-    head: [['Producto', 'Cantidad', 'Precio', 'Subtotal']],
-    body: tableData,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [233, 30, 99],
-      textColor: 255,
-      fontSize: 12,
-      fontStyle: 'bold'
-    },
-    styles: {
-      fontSize: 11,
-      cellPadding: 5
-    },
-    columnStyles: {
-      0: { cellWidth: 80 },
-      1: { cellWidth: 30, halign: 'center' },
-      2: { cellWidth: 40, halign: 'right' },
-      3: { cellWidth: 40, halign: 'right' }
+    if (order.direccion.agenciaEnvio) {
+      direccionLines.push(
+        `${order.direccion.agenciaEnvio.replace(/_/g, ' ')}`,
+        order.direccion.sucursalAgencia || ''
+      )
     }
-  })
 
-  // Total
-  const finalY = doc.lastAutoTable?.finalY || 150
-  doc.setFontSize(14)
-  doc.text(
-    `Total: RD$${Number(order.total).toFixed(2)}`,
-    doc.internal.pageSize.width - 20,
-    finalY + 10,
-    { align: 'right' }
-  )
+    doc.text(direccionLines, 20, 80)
 
-  // Pie de página
-  const pageHeight = doc.internal.pageSize.height
-  doc.setFontSize(10)
-  doc.text('¡Gracias por tu compra!', doc.internal.pageSize.width / 2, pageHeight - 20, { align: 'center' })
-  doc.text('ArlingLow Care', doc.internal.pageSize.width / 2, pageHeight - 15, { align: 'center' })
+    // Tabla de productos
+    const tableData = order.items?.map(item => [
+      item.producto.nombre,
+      item.cantidad.toString(),
+      `RD$${Number(item.precioUnit).toFixed(2)}`,
+      `RD$${(Number(item.precioUnit) * item.cantidad).toFixed(2)}`
+    ]) || []
 
-  return Buffer.from(doc.output('arraybuffer'))
+    doc.autoTable({
+      startY: 100,
+      head: [['Producto', 'Cant.', 'Precio', 'Total']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [233, 30, 99],
+        textColor: 255,
+        fontSize: 10,
+        fontStyle: 'bold'
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: { cellWidth: 90 },
+        1: { cellWidth: 20, halign: 'center' },
+        2: { cellWidth: 35, halign: 'right' },
+        3: { cellWidth: 35, halign: 'right' }
+      }
+    })
+
+    const finalY = doc.lastAutoTable?.finalY || 120
+    doc.setFontSize(12)
+    doc.text(
+      `Total: RD$${Number(order.total).toFixed(2)}`,
+      doc.internal.pageSize.width - 20,
+      finalY + 10,
+      { align: 'right' }
+    )
+
+    doc.setFontSize(8)
+    const pageHeight = doc.internal.pageSize.height
+    doc.text('¡Gracias por su compra!', doc.internal.pageSize.width / 2, pageHeight - 10, { align: 'center' })
+
+    return Buffer.from(doc.output('arraybuffer'))
+  } catch (error) {
+    console.error('Error en generatePDF:', error)
+    throw new Error('Error al generar el PDF')
+  }
 }
 
 export async function GET(
