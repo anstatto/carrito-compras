@@ -1,34 +1,25 @@
-'use client'
+import { PageHeader } from "../../_components/PageHeader";
+import { CategoryForm } from "../_components/CategoryForm";
+import { Metadata } from "next";
 
-import { useState } from 'react'
-import { FaArrowLeft } from 'react-icons/fa'
-import Link from 'next/link'
-import { CategoryForm } from '../_components/CategoryForm'
-import type { CategoryFormData } from '@/interfaces/Category'
+export const metadata: Metadata = {
+  title: "Nueva Categoría | Admin",
+  description: "Crea una nueva categoría de productos",
+};
 
 export default function NewCategoryPage() {
-  const [formData, setFormData] = useState<CategoryFormData>({
-    nombre: '',
-    descripcion: '',
-    imagen: null,
-    slug: '',
-    activa: true
-  })
-
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="flex items-center gap-4 mb-8">
-        <Link href="/admin/categories" className="text-gray-500 hover:text-gray-700 transition-colors">
-          <FaArrowLeft className="w-5 h-5" />
-        </Link>
-        <h1 className="text-2xl font-bold">Nueva Categoría</h1>
-      </div>
-
-      <CategoryForm
-        formData={formData}
-        setFormData={setFormData}
-        isEditing={false}
+    <div className="space-y-6 p-8">
+      <PageHeader
+        title="Nueva Categoría"
+        description="Crea una nueva categoría de productos"
       />
+
+      <div className="max-w-2xl">
+        <div className="bg-white rounded-2xl shadow-sm border p-6">
+          <CategoryForm />
+        </div>
+      </div>
     </div>
-  )
+  );
 } 

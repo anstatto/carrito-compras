@@ -1,5 +1,4 @@
-import { PrismaClient, TipoPago, MarcaTarjeta } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { PrismaClient} from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -36,79 +35,28 @@ const CATEGORIAS = [
   },
 ];
 
-const METODOS_PAGO = [
-  {
-    tipo: TipoPago.TARJETA,
-    marca: MarcaTarjeta.VISA,
-    ultimosDigitos: "4242",
-    predeterminado: true,
-  },
-  {
-    tipo: TipoPago.TARJETA,
-    marca: MarcaTarjeta.MASTERCARD,
-    ultimosDigitos: "5555",
-  },
-  {
-    tipo: TipoPago.TARJETA,
-    marca: MarcaTarjeta.AMEX,
-    ultimosDigitos: "3782",
-  },
-  {
-    tipo: TipoPago.TARJETA,
-    marca: MarcaTarjeta.CARNET,
-    ultimosDigitos: "9424",
-  },
-  {
-    tipo: TipoPago.EFECTIVO,
-  },
-  {
-    tipo: TipoPago.TRANSFERENCIA,
-  },
-  {
-    tipo: TipoPago.STRIPE,
-  },
-];
+
 
 async function main() {
-  // Eliminar datos existentes
-  await prisma.metodoPago.deleteMany();
-  await prisma.categoria.deleteMany();
-  await prisma.user.deleteMany();
-
+  console.log('🌱 Iniciando seed...');
+  
   // Crear categorías
+  console.log('📁 Creando categorías...');
   for (const categoria of CATEGORIAS) {
-    await prisma.categoria.create({
-      data: categoria,
+    await prisma.categoria.upsert({
+      where: { slug: categoria.slug },
+      update: categoria,
+      create: categoria,
     });
   }
+  console.log('✅ Categorías creadas');
 
-  // Crear usuario administrador
-  const hashedPassword = await bcrypt.hash("admin123", 10);
-  const admin = await prisma.user.create({
-    data: {
-      nombre: "Admin",
-      apellido: "Sistema",
-      email: "admin@example.com",
-      password: hashedPassword,
-      role: "ADMIN",
-      activo: true,
-    },
-  });
-
-  // Crear métodos de pago para el admin
-  for (const metodo of METODOS_PAGO) {
-    await prisma.metodoPago.create({
-      data: {
-        ...metodo,
-        userId: admin.id,
-      },
-    });
-  }
+  console.log('🌱 Seed completado');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Error en el seed:', e);
     process.exit(1);
   })
   .finally(async () => {

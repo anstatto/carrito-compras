@@ -5,7 +5,7 @@ import { FaArrowLeft } from 'react-icons/fa'
 import Link from 'next/link'
 import { CategoryForm } from '@/app/admin/categories/_components/CategoryForm'
 import { toast } from 'react-hot-toast'
-import type { CategoryFormData } from '@/interfaces/Category'
+import type { Categoria } from '@prisma/client'
 import React from 'react'
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function EditCategoryPage({ params }: Props) {
-  const [category, setCategory] = useState<CategoryFormData | null>(null)
+  const [category, setCategory] = useState<Categoria | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const id = React.use(params).id
 
@@ -66,11 +66,7 @@ export default function EditCategoryPage({ params }: Props) {
         <h1 className="text-2xl font-bold">Editar Categoría</h1>
       </div>
 
-      <CategoryForm 
-        formData={category}
-        setFormData={setCategory}
-        isEditing={true}
-      />
+      <CategoryForm category={category} />
     </div>
   )
 } 
