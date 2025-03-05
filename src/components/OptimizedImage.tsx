@@ -23,7 +23,7 @@ export default function OptimizedImage({
 }: OptimizedImageProps) {
   if (!src) return 
   
-  console.log("url  imagen:", src)
+  //console.log("url  imagen:", src)
 
   return (
     <Image
