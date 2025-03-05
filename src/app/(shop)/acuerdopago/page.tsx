@@ -62,11 +62,9 @@ const sendToWhatsApp = async (
     const data = await response.json();
 
     if (!response.ok) {
-      // Solo actualizamos el carrito si hay problemas de inventario específicos
       if (data.detalles?.productoId) {
         const { existencias, productoId } = data.detalles;
         
-        // Actualizamos el carrito solo si es necesario
         const newItems = items.map(item =>
           item.id === productoId && item.cantidad > existencias
             ? { ...item, cantidad: Math.max(1, existencias) }
@@ -85,12 +83,7 @@ const sendToWhatsApp = async (
     toast.dismiss(loadingToast);
     toast.success("¡Pedido generado! Abriendo WhatsApp...");
 
-    // Abrimos WhatsApp en una nueva pestaña
-    if (data.whatsappUrl) {
-      window.open(data.whatsappUrl, "_blank");
-    }
-
-    // Confirmamos la orden
+    // Confirmamos la orden primero
     try {
       const confirmResponse = await fetch("/api/acuerdopago/confirmar", {
         method: "POST",
@@ -103,10 +96,30 @@ const sendToWhatsApp = async (
       if (confirmResponse.ok) {
         clearCart();
         toast.success("¡Pedido confirmado exitosamente!");
+        
+        // Abrimos WhatsApp después de confirmar
+        if (data.whatsappUrl) {
+          // Detectar si es iOS
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+          if (isIOS) {
+            // En iOS, usamos window.location.href en lugar de window.open
+            window.location.href = data.whatsappUrl;
+          } else {
+            window.open(data.whatsappUrl, "_blank");
+          }
+        }
       }
     } catch (confirmError) {
       console.error("Error al confirmar el pedido:", confirmError);
-      // No mostramos error al usuario ya que el pedido ya fue enviado a WhatsApp
+      // Aún abrimos WhatsApp aunque falle la confirmación
+      if (data.whatsappUrl) {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
+          window.location.href = data.whatsappUrl;
+        } else {
+          window.open(data.whatsappUrl, "_blank");
+        }
+      }
     }
   } catch (error) {
     console.error("Error al generar la solicitud de pedido:", error);
@@ -123,56 +136,44 @@ export default function AcuerdoPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-      return;
-    }
-
-    if (status === "authenticated") {
-      try {
-        const cartData = localStorage.getItem("cart");
-        if (!cartData) {
-          router.push("/catalogo");
-          return;
-        }
-
-        const cartItems = JSON.parse(cartData);
-        if (cartItems.length === 0) {
-          router.push("/catalogo");
-          return;
-        }
-
-        // Validar que todos los items tengan los campos necesarios
-        const validItems = cartItems.every((item: CartItem) => 
-          item.id && 
-          item.nombre && 
-          item.precio && 
-          item.imagen && 
-          item.cantidad && 
-          item.marca && 
-          typeof item.existencias === 'number'
-        );
-
-        if (!validItems) {
-          toast.error("Error en el formato de los productos del carrito");
-          router.push("/carrito");
-          return;
-        }
-
-        setItems(cartItems);
-      } catch (error) {
-        console.error("Error loading cart items:", error);
-        toast.error("Error al cargar los productos del carrito");
-        router.push("/carrito");
-      } finally {
-        setIsLoading(false);
+    const checkAuth = async () => {
+      if (status === "unauthenticated") {
+        // Guardar la URL actual para redireccionar después del login
+        localStorage.setItem("redirectAfterLogin", window.location.pathname);
+        router.push("/login");
+        return;
       }
-    }
+
+      if (status === "authenticated") {
+        try {
+          const cartData = localStorage.getItem("cart");
+          if (!cartData) {
+            router.push("/catalogo");
+            return;
+          }
+
+          const cartItems = JSON.parse(cartData);
+          if (cartItems.length === 0) {
+            router.push("/catalogo");
+            return;
+          }
+
+          setItems(cartItems);
+        } catch (error) {
+          console.error("Error loading cart items:", error);
+          toast.error("Error al cargar los productos del carrito");
+          router.push("/carrito");
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkAuth();
   }, [status, router]);
 
   const handleAddressSelect = (addressId: string) => {
     setSelectedAddress(addressId);
-   // toast.success("Dirección seleccionada correctamente");
   };
 
   const clearCart = () => {

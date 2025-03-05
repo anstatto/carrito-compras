@@ -7,12 +7,9 @@ import { es } from 'date-fns/locale'
 import { toast } from 'react-hot-toast'
 import { Order } from '@/interfaces/Order'
 import Image from 'next/image'
-import { jsPDF } from 'jspdf'
-import 'jspdf-autotable'
-import type { UserOptions } from 'jspdf-autotable'
+import PrintOrder from '../../_components/PrintOrder'
 import { 
   FaArrowLeft,
-  FaPrint,
   FaUser,
   FaEnvelope,
   FaCreditCard,
@@ -32,128 +29,6 @@ import { EstadoPedido } from '@prisma/client'
 interface OrderDetailsProps {
   initialOrder: Order;
   orderId: string;
-}
-
-interface AutoTable {
-  finalY: number;
-}
-
-interface jsPDFWithAutoTable extends jsPDF {
-  autoTable: (options: UserOptions) => void;
-  lastAutoTable: AutoTable;
-}
-
-const generatePDF = (order: Order) => {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4'
-  }) as jsPDFWithAutoTable
-
-  // Configurar fuente
-  doc.setFont('helvetica')
-
-  // Agregar encabezado
-  doc.setFontSize(20)
-  doc.text('ArlingLow Care', doc.internal.pageSize.width / 2, 20, { align: 'center' })
-  
-  doc.setFontSize(14)
-  doc.text(`Orden #${order.numero}`, doc.internal.pageSize.width / 2, 30, { align: 'center' })
-  
-  doc.setFontSize(10)
-  doc.text(
-    `Fecha: ${order.creadoEl ? new Date(order.creadoEl).toLocaleDateString('es-ES') : ''}`,
-    doc.internal.pageSize.width / 2,
-    37,
-    { align: 'center' }
-  )
-
-  // Información del cliente
-  doc.setFontSize(12)
-  doc.text('Cliente:', 20, 50)
-  doc.setFontSize(10)
-  doc.text([
-    `${order.cliente?.nombre} ${order.cliente?.apellido}`,
-    `Email: ${order.cliente?.email}`,
-    `Tel: ${order.cliente?.telefono || 'N/A'}`
-  ], 20, 55)
-
-  // Dirección
-  doc.setFontSize(12)
-  doc.text('Envío:', 20, 75)
-  doc.setFontSize(10)
-  const direccionLines = [
-    `${order.direccion?.calle} #${order.direccion?.numero}`,
-    `${order.direccion?.sector}, ${order.direccion?.municipio}`,
-    order.direccion?.provincia
-  ]
-
-  if (order.direccion?.agenciaEnvio) {
-    direccionLines.push(
-      `${order.direccion.agenciaEnvio.replace(/_/g, ' ')}`,
-      order.direccion.sucursalAgencia || ''
-    )
-  }
-
-  doc.text(direccionLines, 20, 80)
-
-  // Tabla de productos
-  const tableData = order.items?.map(item => [
-    item.producto.nombre,
-    item.cantidad.toString(),
-    `RD$${Number(item.precioUnit).toFixed(2)}`,
-    `RD$${(Number(item.precioUnit) * item.cantidad).toFixed(2)}`
-  ]) || []
-
-  doc.autoTable({
-    startY: 100,
-    head: [['Producto', 'Cant.', 'Precio', 'Total']],
-    body: tableData,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [233, 30, 99],
-      textColor: 255,
-      fontSize: 10,
-      fontStyle: 'bold'
-    },
-    styles: {
-      fontSize: 9,
-      cellPadding: 3
-    },
-    columnStyles: {
-      0: { cellWidth: 90 },
-      1: { cellWidth: 20, halign: 'center' },
-      2: { cellWidth: 35, halign: 'right' },
-      3: { cellWidth: 35, halign: 'right' }
-    }
-  })
-
-  const finalY = (doc as jsPDFWithAutoTable).lastAutoTable?.finalY || 120
-  doc.setFontSize(12)
-  doc.text(
-    `Total: RD$${Number(order.total).toFixed(2)}`,
-    doc.internal.pageSize.width - 20,
-    finalY + 10,
-    { align: 'right' }
-  )
-
-  doc.setFontSize(8)
-  const pageHeight = doc.internal.pageSize.height
-  doc.text('¡Gracias por su compra!', doc.internal.pageSize.width / 2, pageHeight - 10, { align: 'center' })
-
-  return doc
-}
-
-const handlePrint = async (order: Order) => {
-  try {
-    const doc = generatePDF(order)
-    
-    // Abrir el PDF en una nueva pestaña
-    window.open(doc.output('bloburl'), '_blank')
-  } catch (error) {
-    console.error('Error al generar el PDF:', error)
-    toast.error('Error al generar el PDF')
-  }
 }
 
 export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProps) {
@@ -269,13 +144,7 @@ export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProp
             <FaArrowLeft />
             Volver
           </button>
-          <button
-            onClick={() => handlePrint(order)}
-            className="px-4 py-2 bg-gradient-to-r from-pink-500 to-violet-500 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2"
-          >
-            <FaPrint />
-            Imprimir Orden
-          </button>
+          <PrintOrder order={order} />
         </div>
       </div>
 
@@ -450,7 +319,6 @@ export default function OrderDetails({ initialOrder, orderId }: OrderDetailsProp
           )}
         </div>
       </div>
-
     </div>
   )
 } 
