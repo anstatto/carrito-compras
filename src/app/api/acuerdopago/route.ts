@@ -19,11 +19,6 @@ interface AcuerdoBody {
   total: number;
 }
 
-interface ProductoInfo {
-  nombre: string;
-  precio: number;
-}
-
 const PHONE_NUMBER = "18297828831";
 const MIN_AMOUNT_DOP = 50;
 
@@ -36,68 +31,66 @@ const generateWhatsAppMessage = async (
   direccionId: string,
   total: number
 ): Promise<string> => {
-  // Obtener datos del usuario
   const usuario = await prisma.user.findUnique({
     where: { id: userId },
-    select: { nombre: true, email: true }
+    select: { nombre: true, email: true, telefono: true }
   });
 
-  // Obtener dirección
   const direccion = await prisma.direccion.findUnique({
     where: { id: direccionId },
-    select: { calle: true, provincia: true, municipio: true, codigoPostal: true }
+    select: { 
+      calle: true, 
+      numero: true,
+      sector: true,
+      provincia: true, 
+      municipio: true, 
+      codigoPostal: true,
+      agenciaEnvio: true,
+      sucursalAgencia: true
+    }
   });
 
   if (!usuario || !direccion) {
     throw new Error("No se pudieron obtener los datos del usuario o dirección");
   }
 
-  // Obtener detalles de productos
-  const productos = await Promise.all(
-    items.map(async (item) => {
-      const producto = await prisma.producto.findUnique({
-        where: { id: item.id },
-        select: { nombre: true, precio: true }
-      }) as ProductoInfo | null;
-
-      if (!producto) {
-        return null;
-      }
-
-      return {
-        nombre: producto.nombre,
-        precio: producto.precio,
-        cantidad: item.cantidad,
-        subtotal: producto.precio * item.cantidad
-      };
-    })
-  );
-
   let message = `*Nueva Solicitud de Pedido*\n`;
   message += `Fecha: ${new Date().toLocaleDateString()}\n\n`;
 
   // Datos del cliente
   message += `*Cliente:* ${usuario.nombre}\n`;
-  message += `*Email:* ${usuario.email}\n\n`;
+  message += `*Email:* ${usuario.email}\n`;
+  if (usuario.telefono) {
+    message += `*Teléfono:* ${usuario.telefono}\n`;
+  }
+  message += '\n';
 
   // Datos de la dirección
   message += `*Dirección de Envío:*\n`;
-  message += `${direccion.calle}, ${direccion.municipio}, ${direccion.provincia}\n`;
+  message += `${direccion.calle} ${direccion.numero}\n`;
+  message += `${direccion.sector}, ${direccion.municipio}\n`;
+  message += `${direccion.provincia.replace(/_/g, ' ')}\n`;
   if (direccion.codigoPostal) {
     message += `Código Postal: ${direccion.codigoPostal}\n`;
+  }
+  if (direccion.agenciaEnvio) {
+    message += `Agencia: ${direccion.agenciaEnvio.replace(/_/g, ' ')}\n`;
+    if (direccion.sucursalAgencia) {
+      message += `Sucursal: ${direccion.sucursalAgencia}\n`;
+    }
   }
 
   // Lista de productos
   message += `\n*Productos:*\n`;
-  productos.forEach((producto) => {
-    if (producto) {
-      message += `${producto.nombre} - Cantidad: ${producto.cantidad} - Precio: RD$${producto.precio.toFixed(2)} - Subtotal: RD$${producto.subtotal.toFixed(2)}\n`;
-    }
-  });
+  for (const item of items) {
+    message += `• ${item.nombre}\n`;
+    message += `  Cantidad: ${item.cantidad}\n`;
+    message += `  Precio: RD$${item.precio.toFixed(2)}\n`;
+    message += `  Subtotal: RD$${(item.precio * item.cantidad).toFixed(2)}\n\n`;
+  }
 
   // Total
-  message += `\n*Total:* RD$${total.toFixed(2)}`;
-  message += `\n\n*Estado:* Pendiente de confirmación`;
+  message += `\n*Total del Pedido:* RD$${total.toFixed(2)}`;
 
   const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${PHONE_NUMBER}?text=${encodedMessage}`;
@@ -109,7 +102,7 @@ export async function POST(req: Request) {
     
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: "Sesión no válida" },
+        { error: "Debes iniciar sesión para realizar un pedido" },
         { status: 401 }
       );
     }
@@ -119,7 +112,7 @@ export async function POST(req: Request) {
     // Validaciones básicas
     if (!body.direccionId) {
       return NextResponse.json(
-        { error: "No se ha seleccionado una dirección de envío" },
+        { error: "Por favor, selecciona una dirección de envío" },
         { status: 400 }
       );
     }
@@ -138,7 +131,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verificar existencias y validar productos
+    // Verificar existencias
     const productosValidacion = await Promise.all(
       body.items.map(async (item) => {
         const producto = await prisma.producto.findUnique({
@@ -155,7 +148,7 @@ export async function POST(req: Request) {
         if (!producto) {
           return {
             error: true,
-            mensaje: `El producto con ID ${item.id} no existe en el catálogo`,
+            mensaje: `El producto no está disponible`,
             id: item.id,
             cantidadSolicitada: item.cantidad
           };
@@ -173,7 +166,7 @@ export async function POST(req: Request) {
         if (producto.existencias < item.cantidad) {
           return {
             error: true,
-            mensaje: `Stock insuficiente para "${producto.nombre}". Disponible: ${producto.existencias}, Solicitado: ${item.cantidad}`,
+            mensaje: `Solo quedan ${producto.existencias} unidades disponibles de "${producto.nombre}"`,
             id: item.id,
             cantidadSolicitada: item.cantidad,
             existencias: producto.existencias
@@ -215,15 +208,14 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       whatsappUrl,
-      message: "Solicitud de pedido generada. Por favor, confirme a través de WhatsApp.",
+      message: "¡Pedido generado! Te redirigiremos a WhatsApp para confirmarlo.",
     });
 
   } catch (error) {
-    console.error("Error en la generación del pedido:", error);
+    console.error("Error al generar el pedido:", error);
     return NextResponse.json(
       {
-        success: false,
-        error: "Error al procesar la solicitud",
+        error: "Hubo un problema al procesar tu pedido. Por favor, intenta nuevamente.",
       },
       { status: 500 }
     );
