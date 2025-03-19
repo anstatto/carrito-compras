@@ -11,41 +11,35 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get("q");
+    const q = searchParams.get("q");
 
-    if (!query) {
-      return NextResponse.json([]);
+    if (!q) {
+      return NextResponse.json({ error: "Término de búsqueda requerido" }, { status: 400 });
     }
 
     const products = await prisma.producto.findMany({
       where: {
         OR: [
-          { nombre: { contains: query, mode: 'insensitive' } },
-          { sku: { contains: query, mode: 'insensitive' } },
+          { nombre: { contains: q, mode: 'insensitive' } },
+          { sku: { contains: q, mode: 'insensitive' } }
         ],
-        activo: true,
-        existencias: {
-          gt: 0
-        }
+        activo: true
       },
       select: {
         id: true,
         nombre: true,
         precio: true,
         existencias: true,
+        sku: true,
         enOferta: true,
         precioOferta: true,
         imagenes: {
           select: {
             url: true
-          },
-          take: 1
+          }
         }
       },
-      take: 5,
-      orderBy: {
-        nombre: 'asc'
-      }
+      take: 10
     });
 
     console.log('Productos encontrados:', JSON.stringify(products, null, 2));

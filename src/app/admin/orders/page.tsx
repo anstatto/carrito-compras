@@ -16,6 +16,9 @@ import {
 } from "react-icons/fa";
 import { EstadoPedido, TipoPago } from "@prisma/client";
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
+import CreateManualOrder from './_components/CreateManualOrder';
+import Modal from '@/components/ui/Modal';
 
 interface PaginationData {
   total: number;
@@ -74,6 +77,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewOrder, setShowNewOrder] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [filters, setFilters] = useState<OrderFilters>({
     busqueda: searchParams.get('busqueda') || '',
     estado: searchParams.get('estado') || '',
@@ -210,29 +214,38 @@ export default function OrdersPage() {
           </div>
         </div>
         
-        <button
-          onClick={() => setShowNewOrder(!showNewOrder)}
-          className="px-4 py-2 bg-gradient-to-r from-pink-500 to-violet-500 
-                   text-white rounded-lg hover:shadow-lg transition-all duration-200
-                   flex items-center gap-2 w-full md:w-auto justify-center"
-        >
-          {showNewOrder ? (
-            <>
-              <FaTimes />
-              Cancelar
-            </>
-          ) : (
-            <>
-              <FaPlus />
-              Nueva Orden
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setShowNewOrder(true)}
+            className="flex items-center gap-2"
+          >
+            <FaPlus className="w-4 h-4" />
+            Nueva Orden
+          </Button>
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2"
+            variant="outline"
+          >
+            <FaPlus className="w-4 h-4" />
+            Orden Manual
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-lg">
         {showNewOrder ? (
           <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Nueva Orden</h2>
+              <Button
+                variant="ghost"
+                onClick={() => setShowNewOrder(false)}
+                className="text-gray-500"
+              >
+                <FaTimes className="w-4 h-4" />
+              </Button>
+            </div>
             <OrderForm 
               onSuccess={() => {
                 setShowNewOrder(false);
@@ -349,6 +362,15 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Crear Pedido Manual"
+        size="lg"
+      >
+        <CreateManualOrder />
+      </Modal>
     </div>
   );
 }

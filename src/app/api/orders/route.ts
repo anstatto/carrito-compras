@@ -2,33 +2,32 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from '@/lib/auth'
-import { Prisma, TipoPago, EstadoPedido } from "@prisma/client"
+import { Prisma, TipoPago, EstadoPedido, ProvinciaRD, AgenciaEnvio } from "@prisma/client"
+import { revalidatePath } from "next/cache"
 
-interface OrderItem {
-  productoId: string;
+// Interfaces para la creación de pedidos manuales
+interface ManualOrderItem {
+  id: string;
   cantidad: number;
-  precioUnit: Prisma.Decimal | number | string;
-  subtotal?: Prisma.Decimal;
-  enOferta?: boolean;
-  precioOferta?: Prisma.Decimal | null;
 }
 
-interface ProcessedOrderItem {
-  productoId: string;
-  cantidad: number;
-  precioUnit: Prisma.Decimal;
-  subtotal: Prisma.Decimal;
-  enOferta: boolean;
-  precioRegular: Prisma.Decimal;
-  precioOferta: Prisma.Decimal | null;
-  porcentajeDescuento: number | null;
-}
-
-interface CreateOrderData {
-  clienteId: string;
-  items: OrderItem[];
+interface ManualOrderData {
+  nombreCliente: string;
+  emailCliente: string;
+  telefonoCliente: string;
+  calle: string;
+  numero: string;
+  sector: string;
+  provincia: ProvinciaRD;
+  municipio: string;
+  referencia?: string;
+  telefono: string;
+  celular?: string;
+  agenciaEnvio?: AgenciaEnvio;
+  sucursalAgencia?: string;
+  esManual: boolean;
+  productos: ManualOrderItem[];
   metodoPago: TipoPago;
-  total: number;
 }
 
 interface SerializedOrder {
@@ -146,169 +145,141 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
+
+    if (!session?.user?.id || (session.user.role !== "ADMIN")) {
       return NextResponse.json(
-        { error: 'No autorizado' },
+        { error: "No autorizado" },
         { status: 401 }
       )
     }
 
-    const body = await request.json() as CreateOrderData
-    if (!body) {
-      return NextResponse.json(
-        { error: 'El cuerpo de la solicitud está vacío' },
-        { status: 400 }
-      )
-    }
-
-    const { clienteId, items, metodoPago, total } = body
-
-    // Validaciones
-    if (!clienteId || !items?.length || !metodoPago || typeof total !== 'number' || total <= 0) {
-      return NextResponse.json(
-        { error: 'Datos de pedido incompletos o inválidos' },
-        { status: 400 }
-      )
-    }
-
-    // Verificar dirección predeterminada
-    const direccion = await prisma.direccion.findFirst({
-      where: {
-        userId: clienteId,
-        predeterminada: true
-      }
-    })
-
-    if (!direccion) {
-      return NextResponse.json(
-        { error: 'El cliente no tiene una dirección predeterminada' },
-        { status: 400 }
-      )
-    }
-
-    // Procesar items y verificar existencias
-    const itemsProcesados: ProcessedOrderItem[] = []
-    let subtotalTotal = new Prisma.Decimal(0)
+    const body = await request.json() as ManualOrderData
     
-    for (const item of items) {
-      const producto = await prisma.producto.findUnique({
-        where: { id: item.productoId }
-      })
-
-      if (!producto) {
-        return NextResponse.json(
-          { error: `Producto no encontrado: ${item.productoId}` },
-          { status: 400 }
-        )
+    // Crear dirección manual
+    const direccion = await prisma.direccion.create({
+      data: {
+        calle: body.calle,
+        numero: body.numero,
+        sector: body.sector,
+        provincia: body.provincia,
+        municipio: body.municipio,
+        referencia: body.referencia,
+        telefono: body.telefono,
+        celular: body.celular,
+        agenciaEnvio: body.agenciaEnvio,
+        sucursalAgencia: body.sucursalAgencia,
+        esManual: true
       }
-
-      if (producto.existencias < item.cantidad) {
-        return NextResponse.json(
-          { error: `Stock insuficiente para: ${producto.nombre}` },
-          { status: 400 }
-        )
-      }
-
-      // Calcular precios y descuentos
-      const precioRegular = producto.precio
-      const precioUnitario = producto.enOferta && producto.precioOferta 
-        ? producto.precioOferta 
-        : producto.precio
-
-      const subtotal = new Prisma.Decimal(Number(precioUnitario) * item.cantidad)
-      subtotalTotal = subtotalTotal.add(subtotal)
-
-      const porcentajeDescuento = producto.enOferta && producto.precioOferta
-        ? Math.round((1 - (Number(producto.precioOferta) / Number(producto.precio))) * 100)
-        : null
-
-      itemsProcesados.push({
-        productoId: item.productoId,
-        cantidad: item.cantidad,
-        precioUnit: precioUnitario,
-        subtotal: subtotal,
-        enOferta: producto.enOferta,
-        precioRegular: precioRegular,
-        precioOferta: producto.precioOferta,
-        porcentajeDescuento
-      })
-    }
-
-    // Verificar total
-    if (!subtotalTotal.equals(new Prisma.Decimal(total))) {
-      return NextResponse.json(
-        { error: 'El total no coincide con los precios de los productos' },
-        { status: 400 }
-      )
-    }
-
-    // Crear pedido en una transacción
-    const pedido = await prisma.$transaction(async (prisma) => {
-      // Crear método de pago
-      const metodoPagoCreado = await prisma.metodoPago.create({
-        data: {
-          tipo: metodoPago,
-          userId: clienteId,
-        }
-      })
-
-      // Crear el pedido
-      const nuevoPedido = await prisma.pedido.create({
-        data: {
-          numero: `PED-${Date.now()}`,
-          clienteId,
-          direccionId: direccion.id,
-          metodoPagoId: metodoPagoCreado.id,
-          estado: 'PENDIENTE',
-          estadoPago: 'PENDIENTE',
-          total: subtotalTotal,
-          items: {
-            create: itemsProcesados
-          }
-        },
-        include: {
-          items: {
-            include: {
-              producto: {
-                include: {
-                  imagenes: true
-                }
-              }
-            }
-          },
-          cliente: true,
-          direccion: true,
-          metodoPago: true
-        }
-      })
-
-      // Actualizar existencias
-      for (const item of itemsProcesados) {
-        await prisma.producto.update({
-          where: { id: item.productoId },
-          data: { 
-            existencias: {
-              decrement: item.cantidad
-            }
-          }
-        })
-      }
-
-      return nuevoPedido
     })
 
+    // Calcular siguiente número de pedido
+    const ultimoPedido = await prisma.pedido.findFirst({
+      orderBy: { numero: 'desc' }
+    })
+
+    const numeroActual = ultimoPedido 
+      ? parseInt(ultimoPedido.numero.replace('PED', ''))
+      : 0
+    const nuevoNumero = `PED${(numeroActual + 1).toString().padStart(6, '0')}`
+
+    // Crear el pedido
+    const pedido = await prisma.pedido.create({
+      data: {
+        numero: nuevoNumero,
+        nombreCliente: body.nombreCliente,
+        emailCliente: body.emailCliente,
+        telefonoCliente: body.telefonoCliente,
+        esManual: true,
+        estado: "PENDIENTE",
+        estadoPago: "PENDIENTE",
+        direccionId: direccion.id,
+        items: {
+          create: await Promise.all(body.productos.map(async (item) => {
+            const producto = await prisma.producto.findUnique({
+              where: { id: item.id }
+            })
+
+            if (!producto) {
+              throw new Error(`Producto no encontrado: ${item.id}`)
+            }
+
+            const precioFinal = producto.enOferta && producto.precioOferta 
+              ? producto.precioOferta.toNumber()
+              : producto.precio.toNumber()
+
+            return {
+              productoId: item.id,
+              cantidad: item.cantidad,
+              precioUnit: new Prisma.Decimal(precioFinal),
+              subtotal: new Prisma.Decimal(precioFinal * item.cantidad),
+              enOferta: producto.enOferta,
+              precioRegular: producto.precio,
+              precioOferta: producto.precioOferta,
+              porcentajeDescuento: producto.enOferta && producto.precioOferta
+                ? Math.round(((producto.precio.toNumber() - producto.precioOferta.toNumber()) / producto.precio.toNumber()) * 100)
+                : null
+            }
+          }))
+        }
+      },
+      include: {
+        items: {
+          include: {
+            producto: true
+          }
+        }
+      }
+    })
+
+    // Calcular totales
+    const subtotal = pedido.items.reduce((acc, item) => acc + item.subtotal.toNumber(), 0)
+    const impuestos = 0 // Configurar según necesidad
+    const costoEnvio = 0 // Configurar según necesidad
+    const total = subtotal + impuestos + costoEnvio
+
+    // Actualizar totales
+    await prisma.pedido.update({
+      where: { id: pedido.id },
+      data: {
+        subtotal: new Prisma.Decimal(subtotal),
+        impuestos: new Prisma.Decimal(impuestos),
+        costoEnvio: new Prisma.Decimal(costoEnvio),
+        total: new Prisma.Decimal(total)
+      }
+    })
+
+    // Actualizar inventario
+    for (const item of pedido.items) {
+      await prisma.producto.update({
+        where: { id: item.productoId },
+        data: {
+          existencias: {
+            decrement: item.cantidad
+          }
+        }
+      })
+
+      await prisma.movimientoInventario.create({
+        data: {
+          productoId: item.productoId,
+          tipo: "SALIDA",
+          cantidad: item.cantidad,
+          nota: `Venta manual - Pedido ${pedido.numero}`,
+          userId: session.user.id
+        }
+      })
+    }
+
+    revalidatePath('/admin/orders')
+    
     return NextResponse.json({ 
       success: true, 
-      data: serializeOrder(pedido)
+      data: serializeOrder(pedido) 
     })
-
   } catch (error) {
-    console.error('Error al crear pedido:', error)
+    console.error('Error al crear pedido manual:', error)
     return NextResponse.json(
-      { 
-        success: false,
-        error: error instanceof Error ? error.message : 'Error al crear el pedido'
-      },
+      { success: false, error: "Error al crear el pedido" },
       { status: 500 }
     )
   }
