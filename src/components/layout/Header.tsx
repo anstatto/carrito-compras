@@ -110,10 +110,10 @@ export default function Header() {
 
       return (
         <div className="relative">
-          <motion.button
+          <motion.div
             whileHover={{ scale: 1.05 }}
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+            className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 cursor-pointer"
           >
             <div className="flex items-center">
               <div className="w-8 h-8 rounded-full bg-gradient-to-r from-pink-500 to-violet-500 flex items-center justify-center text-white">
@@ -121,7 +121,7 @@ export default function Header() {
               </div>
               <span className="ml-2 hidden sm:inline">{displayName}</span>
             </div>
-          </motion.button>
+          </motion.div>
 
           <AnimatePresence>
             {showUserMenu && (
@@ -287,10 +287,10 @@ export default function Header() {
             {/* Usuario en Móvil */}
             <div className="sm:hidden">
               {session?.user ? (
-                <motion.button
+                <motion.div
                   whileHover={{ scale: 1.05 }}
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200"
+                  className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200 cursor-pointer"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-r from-pink-500 to-violet-500 flex items-center justify-center text-white">
                     <FaUser className="w-4 h-4" />
@@ -340,7 +340,7 @@ export default function Header() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </motion.button>
+                </motion.div>
               ) : (
                 <Link
                   href="/login"

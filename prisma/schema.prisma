@@ -107,8 +107,12 @@ model MovimientoInventario {
 model Pedido {
   id            String        @id @default(cuid())
   numero        String        @unique
-  clienteId     String
-  cliente       User          @relation(fields: [clienteId], references: [id])
+  clienteId     String?       // Ahora es opcional
+  cliente       User?         @relation(fields: [clienteId], references: [id])
+  nombreCliente String?       @map("nombre_cliente") // Para pedidos manuales
+  emailCliente  String?       @map("email_cliente")  // Para pedidos manuales
+  telefonoCliente String?     @map("telefono_cliente") // Para pedidos manuales
+  esManual      Boolean       @default(false) @map("es_manual") // Indica si es un pedido manual
   items         ItemPedido[]
   subtotal      Decimal       @default(0)
   impuestos     Decimal       @default(0)
@@ -131,6 +135,7 @@ model Pedido {
   @@index([estadoPago])
   @@index([creadoEl])
   @@index([numero])
+  @@index([esManual])
 }
 
 // Modelo de Items de Pedido
@@ -266,8 +271,8 @@ enum AgenciaEnvio {
 // Modelo de Direcciones
 model Direccion {
   id              String      @id @default(cuid())
-  userId          String      @map("user_id")
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String?     @map("user_id") // Ahora es opcional
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   calle           String      @db.VarChar(100)
   numero          String      @map("numero") @db.VarChar(20)
   sector          String      @db.VarChar(100)
@@ -281,12 +286,14 @@ model Direccion {
   sucursalAgencia String?     @map("sucursal_agencia") @db.VarChar(100)
   predeterminada  Boolean     @default(false)
   pedidos         Pedido[]
+  esManual        Boolean     @default(false) @map("es_manual") // Para identificar direcciones de pedidos manuales
   creadoEl        DateTime    @default(now()) @map("creado_el")
   actualizadoEl   DateTime    @updatedAt @map("actualizado_el")
 
   @@map("direcciones")
   @@index([userId])
   @@index([predeterminada])
+  @@index([esManual])
 }
 
 // Modelo de Métodos de Pago
